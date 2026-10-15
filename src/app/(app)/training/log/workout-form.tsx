@@ -18,6 +18,7 @@ export type InitialWorkout = {
   date: string;
   kind: string;
   notes: string;
+  durationMin: number | null;
   unit: "lb" | "kg";
   exercises: { name: string; sets: SetIn[] }[];
 };
@@ -45,6 +46,7 @@ export function WorkoutForm({
   const [kind, setKind] = useState(initial?.kind || "push");
   const [unit, setUnit] = useState<"lb" | "kg">(initial?.unit || defaultUnit);
   const [notes, setNotes] = useState(initial?.notes || "");
+  const [duration, setDuration] = useState(initial?.durationMin ? String(initial.durationMin) : "");
   const [exs, setExs] = useState<ExIn[]>(
     initial ? initial.exercises.map((e) => ({ key: keySeq++, name: e.name, muscle: "Chest", exKind: "compound", sets: e.sets })) : [blankEx()],
   );
@@ -74,6 +76,7 @@ export function WorkoutForm({
     date,
     kind,
     notes,
+    durationMin: duration.trim() ? Math.max(1, Math.round(Number(duration)) || 0) || null : null,
     unit,
     exercises: exs
       .filter((e) => e.name.trim())
@@ -126,6 +129,18 @@ export function WorkoutForm({
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-[12.5px] text-ink-3">
+            Duration
+            <input
+              inputMode="numeric"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="min"
+              className="field h-9 w-20 font-mono"
+              aria-label="Workout duration in minutes"
+            />
+          </label>
           <div className="inline-flex rounded-[10px] bg-surface-2 p-1 ring-1 ring-inset ring-line" role="group" aria-label="Weight unit">
             {(["lb", "kg"] as const).map((u) => (
               <button
@@ -137,6 +152,7 @@ export function WorkoutForm({
                 {u}
               </button>
             ))}
+          </div>
           </div>
           {last && !initial && (
             <button type="button" onClick={startFromLast} className={btn.secondary}>

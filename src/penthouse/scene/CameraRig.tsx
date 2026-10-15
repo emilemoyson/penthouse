@@ -8,13 +8,31 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useZone } from "../store";
 import { OVERVIEW, overviewPose, zoneById } from "../zones";
 
-const _goalPos = new THREE.Vector3();
-const _goalTarget = new THREE.Vector3();
+/** World point the lens focuses on (read by the depth-of-field pass every frame). */
+export const focusPoint = new THREE.Vector3(...OVERVIEW.target);
+
+const BASE_FOV = 36;
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
+
+type Tween = {
+  start: number;
+  p: number;
+  dur: number;
+  fromPos: THREE.Vector3;
+  ctrl: THREE.Vector3;
+  toPos: THREE.Vector3;
+  fromTarget: THREE.Vector3;
+  toTarget: THREE.Vector3;
+  fromFov: number;
+  toFov: number;
+};
 
 /**
- * State-driven camera.
+ * Cinematic, state-driven camera.
  * - overview: OrbitControls own the camera (restricted so the room never gets lost).
- * - flying / returning: controls are locked and we damp position + target toward the goal every frame.
+ * - flying / returning: a timed tween along a raised quadratic Bézier arc with ease-in-out,
+ *   the look-at target leading slightly (ease-out) and a small FOV dolly for a lens-like push-in.
  * - focused: camera holds the zone pose; a projection offset slides the subject out from under the glass panel.
  */
 export function CameraRig() {
@@ -25,6 +43,7 @@ export function CameraRig() {
   const arrive = useZone((s) => s.arrive);
   const settle = useZone((s) => s.settle);
   const shift = useRef({ x: 0, y: 0 });
+  const tween = useRef<Tween | null>(null);
   const k = overviewPose(size.width / size.height).k;
 
   // place the camera for this screen shape on first load
@@ -41,7 +60,8 @@ export function CameraRig() {
   // Esc closes, 1-4 jump to zones
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "Escape") useZone.getState().close();
       const map: Record<string, Parameters<ReturnType<typeof useZone.getState>["focus"]>[0]> = { "1": "bed", "2": "desk", "3": "gym", "4": "kitchen" };
       if (map[e.key]) useZone.getState().focus(map[e.key]);
@@ -50,6 +70,44 @@ export function CameraRig() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // start a new flight whenever the destination changes (also mid-flight)
+  useEffect(() => {
+    if (phase !== "flying" && phase !== "returning") return;
+    const c = controls.current;
+    if (!c) return;
+    const cam = camera as THREE.PerspectiveCamera;
+    let toPos: THREE.Vector3;
+    let toTarget: THREE.Vector3;
+    let toFov = BASE_FOV;
+    if (zone && phase === "flying") {
+      const z = zoneById(zone);
+      toPos = new THREE.Vector3(...z.camera.position);
+      toTarget = new THREE.Vector3(...z.camera.target);
+      toFov = z.fov ?? 34;
+    } else {
+      const o = overviewPose(size.width / size.height);
+      toPos = new THREE.Vector3(...o.position);
+      toTarget = new THREE.Vector3(...o.target);
+    }
+    const fromPos = cam.position.clone();
+    const dist = fromPos.distanceTo(toPos);
+    // raise the arc's control point so the camera swoops instead of sliding through furniture
+    const ctrl = fromPos.clone().lerp(toPos, 0.5);
+    ctrl.y = Math.max(fromPos.y, toPos.y) + Math.min(3.5, dist * 0.18);
+    tween.current = {
+      start: performance.now(),
+      p: 0,
+      dur: THREE.MathUtils.clamp(0.9 + dist * 0.07, 1.2, 2.3),
+      fromPos,
+      ctrl,
+      toPos,
+      fromTarget: c.target.clone(),
+      toTarget,
+      fromFov: cam.fov,
+      toFov,
+    };
+  }, [zone, phase, camera, size.width, size.height]);
+
   useFrame((_, dtRaw) => {
     const c = controls.current;
     if (!c) return;
@@ -57,43 +115,43 @@ export function CameraRig() {
     const cam = camera as THREE.PerspectiveCamera;
 
     // ---- projection offset so the focused object isn't hidden behind the panel
-    const wide = size.width >= 900;
-    const wantX = phase === "focused" || phase === "flying" ? (wide ? size.width * 0.2 : 0) : 0;
-    const wantY = phase === "focused" || phase === "flying" ? (wide ? 0 : size.height * 0.24) : 0;
-    shift.current.x = THREE.MathUtils.damp(shift.current.x, wantX, 4, dt);
-    shift.current.y = THREE.MathUtils.damp(shift.current.y, wantY, 4, dt);
+    const wide = size.width >= 1024; // matches the panel's lg: breakpoint
+    const away = phase === "focused" || phase === "flying";
+    const wantX = away ? (wide ? size.width * 0.2 : 0) : 0;
+    const wantY = away ? (wide ? 0 : size.height * 0.3) : 0;
+    shift.current.x = THREE.MathUtils.damp(shift.current.x, wantX, 3.5, dt);
+    shift.current.y = THREE.MathUtils.damp(shift.current.y, wantY, 3.5, dt);
     if (Math.abs(shift.current.x) > 0.5 || Math.abs(shift.current.y) > 0.5) {
       cam.setViewOffset(size.width, size.height, shift.current.x, shift.current.y, size.width, size.height);
-    } else if (cam.view) {
+    } else if (cam.view?.enabled) {
       cam.clearViewOffset();
     }
 
-    if (phase === "overview") return;
+    focusPoint.lerp(c.target, Math.min(1, dt * 6));
 
-    // ---- travel
-    if (zone) {
-      const z = zoneById(zone);
-      _goalPos.set(...z.camera.position);
-      _goalTarget.set(...z.camera.target);
-    } else {
-      const o = overviewPose(size.width / size.height);
-      _goalPos.set(...o.position);
-      _goalTarget.set(...o.target);
-    }
-    const lambda = phase === "returning" ? 2.6 : 2.9;
-    cam.position.x = THREE.MathUtils.damp(cam.position.x, _goalPos.x, lambda, dt);
-    cam.position.y = THREE.MathUtils.damp(cam.position.y, _goalPos.y, lambda, dt);
-    cam.position.z = THREE.MathUtils.damp(cam.position.z, _goalPos.z, lambda, dt);
-    c.target.x = THREE.MathUtils.damp(c.target.x, _goalTarget.x, lambda * 1.15, dt);
-    c.target.y = THREE.MathUtils.damp(c.target.y, _goalTarget.y, lambda * 1.15, dt);
-    c.target.z = THREE.MathUtils.damp(c.target.z, _goalTarget.z, lambda * 1.15, dt);
+    const tw = tween.current;
+    if (!tw || (phase !== "flying" && phase !== "returning")) return;
+    // wall-clock progress: a dropped frame never slows the flight down
+    tw.p = Math.min(1, (performance.now() - tw.start) / (tw.dur * 1000));
+    const e = easeInOutCubic(tw.p);
+    const u = 1 - e;
+    cam.position.set(
+      u * u * tw.fromPos.x + 2 * u * e * tw.ctrl.x + e * e * tw.toPos.x,
+      u * u * tw.fromPos.y + 2 * u * e * tw.ctrl.y + e * e * tw.toPos.y,
+      u * u * tw.fromPos.z + 2 * u * e * tw.ctrl.z + e * e * tw.toPos.z,
+    );
+    c.target.lerpVectors(tw.fromTarget, tw.toTarget, easeOutQuart(Math.min(1, tw.p * 1.1)));
+    cam.fov = THREE.MathUtils.lerp(tw.fromFov, tw.toFov, e);
+    cam.updateProjectionMatrix();
     cam.lookAt(c.target);
 
-    const dist = cam.position.distanceTo(_goalPos) + c.target.distanceTo(_goalTarget);
-    if (phase === "flying" && dist < 0.35) arrive(); // fade the panel in as the camera settles
-    if (phase === "returning" && dist < 0.08) {
-      c.update();
-      settle();
+    if (phase === "flying" && tw.p > 0.82) arrive(); // fade the panel in as the camera settles
+    if (tw.p >= 1) {
+      tween.current = null;
+      if (phase === "returning") {
+        c.update();
+        settle();
+      }
     }
   });
 

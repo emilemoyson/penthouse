@@ -11,6 +11,7 @@ const WorkoutInput = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   kind: z.string().min(1).max(20),
   notes: z.string().max(2000).default(""),
+  durationMin: z.number().int().min(1).max(600).nullable().optional(),
   unit: z.enum(["lb", "kg"]),
   exercises: z
     .array(
@@ -38,10 +39,10 @@ export async function saveWorkout(_prev: { error?: string } | undefined, form: F
   await sql.begin(async (tx) => {
     let id = w.id;
     if (id) {
-      await tx`update workouts set date = ${w.date}, kind = ${w.kind}, notes = ${w.notes}, date_estimated = false where id = ${id}`;
+      await tx`update workouts set date = ${w.date}, kind = ${w.kind}, notes = ${w.notes}, duration_min = ${w.durationMin ?? null}, date_estimated = false where id = ${id}`;
       await tx`delete from sets where workout_id = ${id}`;
     } else {
-      const [row] = await tx`insert into workouts (date, kind, notes) values (${w.date}, ${w.kind}, ${w.notes}) returning id`;
+      const [row] = await tx`insert into workouts (date, kind, notes, duration_min) values (${w.date}, ${w.kind}, ${w.notes}, ${w.durationMin ?? null}) returning id`;
       id = row.id as number;
     }
     for (const [i, ex] of w.exercises.entries()) {
@@ -58,6 +59,7 @@ export async function saveWorkout(_prev: { error?: string } | undefined, form: F
   });
   revalidatePath("/training");
   revalidatePath("/habits");
+  revalidatePath("/");
   redirect("/training");
 }
 

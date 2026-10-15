@@ -4,6 +4,8 @@ import { COOKIE, verifySessionToken } from "@/lib/auth";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (pathname.startsWith("/login")) return NextResponse.next();
+  // ingest endpoints authenticate with their own bearer token
+  if (pathname.startsWith("/api/ingest/")) return NextResponse.next();
 
   let ok = false;
   try {
@@ -12,6 +14,7 @@ export async function middleware(req: NextRequest) {
     ok = false;
   }
   if (ok) return NextResponse.next();
+  if (pathname.startsWith("/api/")) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const url = req.nextUrl.clone();
   url.pathname = "/login";

@@ -51,7 +51,7 @@ export function Zone({ id, children, hitbox }: { id: ZoneId; children: ReactNode
 export function useGlow(id: ZoneId, base = 1.2) {
   const hovered = useZone((s) => s.hovered === id);
   const active = useZone((s) => s.zone === id);
-  return hovered ? base * 2.2 : active ? base * 1.5 : base;
+  return hovered ? base * 1.4 : active ? base * 1.1 : base;
 }
 
 /** Projects each zone's anchor to screen space and moves its DOM label there. Cheap: no React renders per frame. */

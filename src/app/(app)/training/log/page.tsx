@@ -3,6 +3,7 @@ import { todayISO, fShort } from "@/lib/dates";
 import { PageHeader } from "@/components/ui";
 import { WorkoutForm, type LastByKind, type LastByExercise, type InitialWorkout } from "./workout-form";
 import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Log workout" };
@@ -48,11 +49,14 @@ export default async function LogPage({ searchParams }: { searchParams: Promise<
     const w = data.workouts.find((x) => x.id === Number(id));
     if (!w) notFound();
     const names = [...new Set(w.sets.map((s) => s.exercise))];
+    const sql = await db();
+    const [d] = await sql<{ duration_min: number | null }[]>`select duration_min from workouts where id = ${w.id}`;
     initial = {
       id: w.id,
       date: w.date,
       kind: w.kind,
       notes: w.notes,
+      durationMin: d?.duration_min ?? null,
       unit: (w.sets[0]?.unit as "lb" | "kg") || data.settings.unit,
       exercises: names.map((n) => ({
         name: n,

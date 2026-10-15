@@ -3,7 +3,7 @@ import { seedDatabase } from "./seed";
 
 type Sql = ReturnType<typeof postgres>;
 
-const globalForDb = globalThis as unknown as { __sql?: Sql; __schemaReady?: Promise<void> };
+const globalForDb = globalThis as unknown as { __sql?: Sql; __schemaReady?: Promise<void>; __schemaKey?: number };
 
 function connectionString() {
   const url =
@@ -99,6 +99,50 @@ create table if not exists books (
   created_at timestamptz not null default now()
 );
 
+alter table workouts add column if not exists duration_min integer;
+
+-- ---------- live pipelines (filled by /api/ingest/* or the UI) ----------
+create table if not exists sleep_logs (
+  date text primary key,          -- the morning you woke up
+  total_min integer not null,
+  deep_min integer,
+  rem_min integer,
+  light_min integer,
+  awake_min integer,
+  recovery integer,               -- 0-100 (Garmin Body Battery / WHOOP recovery / Oura readiness)
+  hrv integer,
+  rhr integer,
+  bedtime text,
+  waketime text,
+  source text not null default 'manual',
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists meals (
+  id serial primary key,
+  date text not null,
+  time text not null default '',
+  name text not null,
+  kcal integer not null default 0,
+  protein double precision not null default 0,
+  carbs double precision not null default 0,
+  fat double precision not null default 0,
+  source text not null default 'manual',
+  created_at timestamptz not null default now()
+);
+create index if not exists meals_date_idx on meals(date);
+
+create table if not exists email_summaries (
+  id text primary key,            -- provider message id, so re-ingesting is idempotent
+  received_at timestamptz not null,
+  sender text not null,
+  subject text not null default '',
+  summary text not null default '',
+  bullets jsonb not null default '[]',
+  tag text not null default 'Other',
+  created_at timestamptz not null default now()
+);
+
 create table if not exists kv (
   key text primary key,
   value jsonb not null,
@@ -109,6 +153,11 @@ create table if not exists kv (
 /** Creates tables on first use and imports starter data once. Safe to call on every request. */
 export async function db(): Promise<Sql> {
   const sql = getSql();
+  // re-run the (idempotent) schema when it changes, e.g. after a hot reload in dev
+  if (globalForDb.__schemaKey !== SCHEMA.length) {
+    globalForDb.__schemaKey = SCHEMA.length;
+    globalForDb.__schemaReady = undefined;
+  }
   if (!globalForDb.__schemaReady) {
     globalForDb.__schemaReady = (async () => {
       await sql.unsafe(SCHEMA);

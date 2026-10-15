@@ -14,6 +14,8 @@ export type ZoneDef = {
   labelY: number;
   /** Camera pose when the zone is focused. */
   camera: { position: V3; target: V3 };
+  /** Lens when focused (narrower = more telephoto, cinematic). */
+  fov?: number;
   /** Accent glow for lights, hover and the overlay. */
   color: string;
   href: string;
@@ -54,8 +56,9 @@ export const ZONES: ZoneDef[] = [
     title: "Sleep & Recovery",
     subtitle: "Last night, REM and today's energy",
     key: "1",
-    anchor: [-5.2, 0, -3.2],
-    camera: { position: [-1.6, 3.3, 1.6], target: [-5.2, 0.55, -3.4] },
+    anchor: [-7.2, 0, -3.4],
+    camera: { position: [-3.7, 2.9, 0.5], target: [-7.3, 0.55, -3.5] },
+    fov: 34,
     color: "#f2a53a",
     href: "/habits",
   },
@@ -66,9 +69,10 @@ export const ZONES: ZoneDef[] = [
     title: "Professional Hub",
     subtitle: "Job search, inbox and calendar",
     key: "2",
-    anchor: [4.6, 0, -4.1],
-    // over the shoulder, framing the laptop
-    camera: { position: [5.35, 1.95, -1.95], target: [4.6, 0.95, -4.55] },
+    anchor: [4.6, 0, -4.4],
+    // swoops over the right shoulder straight onto the laptop screen
+    camera: { position: [5.55, 2.05, -2.15], target: [4.95, 1.0, -4.65] },
+    fov: 38,
     color: "#4b93ec",
     href: "/jobs",
   },
@@ -79,8 +83,9 @@ export const ZONES: ZoneDef[] = [
     title: "Fitness Analytics",
     subtitle: "Frequency, lifts and streaks",
     key: "3",
-    anchor: [-5.2, 0, 3],
-    camera: { position: [-0.8, 3.2, 7.6], target: [-5.2, 1.0, 2.6] },
+    anchor: [-6.2, 0, 3.1],
+    camera: { position: [-1.5, 3.0, 7.7], target: [-6.0, 0.9, 3.0] },
+    fov: 34,
     color: "#9085e9",
     href: "/training",
   },
@@ -91,8 +96,9 @@ export const ZONES: ZoneDef[] = [
     title: "Diet & Nutrition",
     subtitle: "Calories, macros and meals",
     key: "4",
-    anchor: [4.6, 0, 2.8],
-    camera: { position: [9.2, 3.5, 7.4], target: [4.4, 0.95, 2.6] },
+    anchor: [5.6, 0, 2.4],
+    camera: { position: [8.4, 1.85, 5.9], target: [5.0, 1.05, 2.3] },
+    fov: 34,
     color: "#23b58a",
     href: "/habits",
   },

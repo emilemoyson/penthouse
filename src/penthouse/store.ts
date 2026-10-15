@@ -10,8 +10,16 @@ export type ZoneId = "bed" | "desk" | "gym" | "kitchen";
  */
 export type Phase = "overview" | "flying" | "focused" | "returning";
 
+export type Quality = "high" | "low";
+
 type State = {
   zone: ZoneId | null;
+  /** high: shadows, reflections, DOF + bloom. low: phones / weak GPUs. */
+  quality: Quality;
+  /** chunky pixel render (renders at half resolution, upscaled with nearest-neighbour) */
+  pixel: boolean;
+  setQuality: (q: Quality) => void;
+  setPixel: (p: boolean) => void;
   phase: Phase;
   hovered: ZoneId | null;
   focus: (z: ZoneId) => void;
@@ -23,6 +31,10 @@ type State = {
 
 export const useZone = create<State>((set, get) => ({
   zone: null,
+  quality: "high",
+  pixel: true,
+  setQuality: (quality) => set({ quality }),
+  setPixel: (pixel) => set({ pixel }),
   phase: "overview",
   hovered: null,
   focus: (z) => {

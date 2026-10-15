@@ -3,19 +3,19 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { X, LayoutGrid } from "lucide-react";
+import { X, LayoutGrid, Grid2x2 } from "lucide-react";
 import { useZone, type ZoneId } from "./store";
 import { ZONES, zoneById } from "./zones";
-import type { PenthouseData } from "./types";
+import type { PenthouseData } from "./data/types";
 import { labelEls } from "./labels";
-import { DeskPanel, FullPageLink, GymPanel, KitchenPanel, SleepPanel } from "./overlays/panels";
+import { FitnessPanel, FullPageLink, NutritionPanel, ProfessionalPanel, SleepPanel } from "./overlays/panels";
 
 // WebGL only runs in the browser
 const Scene = dynamic(() => import("./scene/Scene"), { ssr: false, loading: () => <Loader /> });
 
 export function Penthouse({ data }: { data: PenthouseData }) {
   return (
-    <div className="dark-room fixed inset-0 overflow-hidden bg-[#0a0a0f] text-white">
+    <div className="dark-room fixed inset-0 overflow-hidden bg-[#05050a] text-white">
       <div className="absolute inset-0">
         <Scene />
       </div>
@@ -79,7 +79,8 @@ function Hud() {
         </div>
       </div>
 
-      {/* top-right: classic pages */}
+      {/* top-right: pixel filter + classic pages */}
+      <PixelToggle free={free} />
       <a
         href="/training"
         className={clsx(
@@ -134,8 +135,8 @@ function Overlay({ data }: { data: PenthouseData }) {
     <aside
       aria-hidden={!visible}
       className={clsx(
-        "absolute z-20 flex flex-col overflow-hidden rounded-[26px] border border-white/[0.12] text-white",
-        "bg-[linear-gradient(160deg,rgba(40,36,58,0.55),rgba(14,13,22,0.62))] shadow-[0_20px_80px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150",
+        "absolute z-20 flex flex-col overflow-hidden rounded-[26px] border text-white",
+        "border-white/10 bg-black/40 shadow-[0_24px_90px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-[20px] backdrop-saturate-[1.4]",
         "inset-x-3 bottom-3 top-[44dvh] lg:inset-x-auto lg:bottom-6 lg:right-6 lg:top-6 lg:w-[min(560px,42vw)]",
         "transition-all duration-500 ease-out",
         visible ? "translate-y-0 opacity-100 lg:translate-x-0" : "pointer-events-none translate-y-6 opacity-0 lg:translate-x-8 lg:translate-y-0",
@@ -162,10 +163,10 @@ function Overlay({ data }: { data: PenthouseData }) {
             </div>
           </header>
           <div className="relative flex-1 overflow-y-auto px-5 py-4 sm:px-6 [scrollbar-width:thin]">
-            {shown === "bed" && <SleepPanel />}
-            {shown === "desk" && <DeskPanel data={data} />}
-            {shown === "gym" && <GymPanel data={data} />}
-            {shown === "kitchen" && <KitchenPanel />}
+            {shown === "bed" && <SleepPanel initial={data.sleep} />}
+            {shown === "desk" && <ProfessionalPanel initial={data.professional} />}
+            {shown === "gym" && <FitnessPanel initial={data.fitness} />}
+            {shown === "kitchen" && <NutritionPanel initial={data.nutrition} />}
           </div>
           <footer className="relative hidden border-t border-white/[0.06] px-6 py-2.5 text-[11.5px] text-white/35 lg:block">
             <kbd className="font-mono">Esc</kbd> to zoom out · <kbd className="font-mono">1–4</kbd> to jump between rooms
@@ -213,5 +214,23 @@ function ZoneLabels() {
         );
       })}
     </div>
+  );
+}
+
+function PixelToggle({ free }: { free: boolean }) {
+  const pixel = useZone((s) => s.pixel);
+  const setPixel = useZone((s) => s.setPixel);
+  return (
+    <button
+      onClick={() => setPixel(!pixel)}
+      title="Pixel filter"
+      className={clsx(
+        "absolute right-[156px] top-6 hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium backdrop-blur-md transition sm:inline-flex",
+        pixel ? "border-white/25 bg-white/[0.14] text-white" : "border-white/10 bg-white/[0.06] text-white/60 hover:text-white",
+        free ? "opacity-100" : "pointer-events-none opacity-0",
+      )}
+    >
+      <Grid2x2 size={13} /> Pixel {pixel ? "on" : "off"}
+    </button>
   );
 }
