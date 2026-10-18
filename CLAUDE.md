@@ -8,7 +8,7 @@ Private personal dashboard. Home page is a 3D cosy apartment at night (React Thr
 - Postgres via the `postgres` package (Neon in production). Schema is created on first query in `src/lib/db.ts` and re-run when `SCHEMA.length` changes. Seed data imports once (kv key `seeded`).
 - R3F v9, drei v10, @react-three/postprocessing v3, zustand
 - Auth: single password. `src/middleware.ts` checks an HMAC cookie `hub_session` (secret is `"hub:" + APP_PASSWORD`).
-- Hosting plan: Vercel (free) + Neon (free). Not deployed yet.
+- Hosting plan: Vercel (free) + Neon (free). Code is on GitHub (private): github.com/emilemoyson/penthouse. Not deployed on Vercel yet.
 
 ## Run locally
 
@@ -66,10 +66,13 @@ Never commit `.env.local`.
 
 The owner prefers plain, understated wording in UI copy and docs. No em dashes.
 
-## Open items
+## Open items (next session starts here)
 
-- Push to GitHub and deploy on Vercel + Neon.
-- Strava / Garmin import for runs and sleep.
-- Paste `automation/morning-inbox.md` into the Claude Desktop morning task once deployed.
-- Build the iPhone "Log workout" Shortcut (`docs/shortcuts.md`) once deployed.
-- Install the MyFitnessPal launchd job once Emile is logged in to MyFitnessPal in Chrome.
+Status on 2026-10-18: everything works locally (`npm run dev`, password in `.env.local`, Postgres on port 5433). The Jobs sheet feed is connected locally (`JOBS_SHEET_URL` / `JOBS_SHEET_TOKEN` in `.env.local`, Apps Script file `JobsFeed` lives next to Emile's Job Watcher script in the sheet; never replace that script).
+
+1. Deploy: Emile imports the GitHub repo on vercel.com, adds Neon (Storage), and sets env vars `APP_PASSWORD` (a new strong one), `INGEST_TOKEN`, `JOBS_SHEET_URL`, `JOBS_SHEET_TOKEN` (local values are in `.env.local`).
+2. After deploy: point `scripts/.env` `INGEST_URL` at the Vercel URL, install the MyFitnessPal launchd job (`scripts/com.emile.mfp-sync.plist`), and test with a breakfast of toast, eggs and avocado logged in the MyFitnessPal app (`scripts/mfp_sync.py --dry-run` first).
+3. Build the iPhone "Log workout" Shortcut (`docs/shortcuts.md`) and send a real note in the `docs/gym-template.md` format.
+4. Paste `automation/morning-inbox.md` (with the site URL and token) into the Claude Desktop morning task and run it once.
+5. Emile has more tweaks in mind for the scroll-into-the-sky full view (`src/penthouse/rise.ts`); ask what they are.
+6. Later: Strava / Garmin import for runs and sleep.
