@@ -7,6 +7,7 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useZone } from "../store";
 import { OVERVIEW, overviewPose, zoneById } from "../zones";
+import { easeRise, resetRise, rise, setRise } from "../rise";
 
 /** World point the lens focuses on (read by the depth-of-field pass every frame). */
 export const focusPoint = new THREE.Vector3(...OVERVIEW.target);
@@ -14,6 +15,14 @@ export const focusPoint = new THREE.Vector3(...OVERVIEW.target);
 const BASE_FOV = 36;
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
+
+// rise: crane up and out of the room, tilting toward the night sky over the skyline
+const SKY_FOV = 46;
+const basePos = new THREE.Vector3();
+const baseTarget = new THREE.Vector3();
+const skyPos = new THREE.Vector3();
+const skyTarget = new THREE.Vector3();
+const risePos = new THREE.Vector3();
 
 type Tween = {
   start: number;
@@ -34,6 +43,7 @@ type Tween = {
  * - flying / returning: a timed tween along a raised quadratic Bézier arc with ease-in-out,
  *   the look-at target leading slightly (ease-out) and a small FOV dolly for a lens-like push-in.
  * - focused: camera holds the zone pose; a projection offset slides the subject out from under the glass panel.
+ *   Scrolling (src/penthouse/rise.ts) then cranes it up from that pose into the night sky.
  */
 export function CameraRig() {
   const controls = useRef<OrbitControlsImpl>(null);
@@ -62,9 +72,16 @@ export function CameraRig() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.key === "Escape") useZone.getState().close();
+      if (e.key === "Escape") {
+        // from the sky, Esc first comes back down into the room
+        if (rise.target > 0) setRise(0);
+        else useZone.getState().close();
+      }
       const map: Record<string, Parameters<ReturnType<typeof useZone.getState>["focus"]>[0]> = { "1": "bed", "2": "desk", "3": "gym", "4": "kitchen" };
-      if (map[e.key]) useZone.getState().focus(map[e.key]);
+      if (map[e.key]) {
+        resetRise();
+        useZone.getState().focus(map[e.key]);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -114,11 +131,20 @@ export function CameraRig() {
     const dt = Math.min(dtRaw, 0.1);
     const cam = camera as THREE.PerspectiveCamera;
 
+    // ---- the rise only exists in a focused room
+    if (phase === "focused" && zone) {
+      rise.value = THREE.MathUtils.damp(rise.value, rise.target, 4.2, dt);
+      if (Math.abs(rise.value - rise.target) < 0.0005) rise.value = rise.target;
+    } else if (rise.value || rise.target) {
+      resetRise();
+    }
+    const up = easeRise(rise.value);
+
     // ---- projection offset so the focused object isn't hidden behind the panel
     const wide = size.width >= 1024; // matches the panel's lg: breakpoint
     const away = phase === "focused" || phase === "flying";
-    const wantX = away ? (wide ? size.width * 0.2 : 0) : 0;
-    const wantY = away ? (wide ? 0 : size.height * 0.3) : 0;
+    const wantX = away ? (wide ? size.width * 0.2 : 0) * (1 - up) : 0;
+    const wantY = away ? (wide ? 0 : size.height * 0.3) * (1 - up) : 0;
     shift.current.x = THREE.MathUtils.damp(shift.current.x, wantX, 3.5, dt);
     shift.current.y = THREE.MathUtils.damp(shift.current.y, wantY, 3.5, dt);
     if (Math.abs(shift.current.x) > 0.5 || Math.abs(shift.current.y) > 0.5) {
@@ -127,10 +153,28 @@ export function CameraRig() {
       cam.clearViewOffset();
     }
 
+    // ---- rise pose: from the room's pose up over the glass, looking at the sky (no tween is running when focused)
+    if (phase === "focused" && zone && !tween.current && (rise.value > 0 || cam.userData.risen)) {
+      const z = zoneById(zone);
+      basePos.set(...z.camera.position);
+      baseTarget.set(...z.camera.target);
+      skyPos.set(basePos.x * 0.55, 9.5, 2.5);
+      skyTarget.set(basePos.x * 0.25, 24, -60);
+      risePos.lerpVectors(basePos, skyPos, up);
+      risePos.y += Math.sin(up * Math.PI) * 1.2; // a slight lift mid-way so it reads as a crane, not a slide
+      cam.position.copy(risePos);
+      c.target.lerpVectors(baseTarget, skyTarget, up);
+      cam.fov = THREE.MathUtils.lerp(z.fov ?? 34, SKY_FOV, up);
+      cam.updateProjectionMatrix();
+      cam.lookAt(c.target);
+      cam.userData.risen = rise.value > 0; // one more frame at exactly the room pose when it lands
+    }
+
     focusPoint.lerp(c.target, Math.min(1, dt * 6));
 
     const tw = tween.current;
-    if (!tw || (phase !== "flying" && phase !== "returning")) return;
+    // keep going after arrive() flips the phase to "focused": the last stretch of the flight still has to land
+    if (!tw) return;
     // wall-clock progress: a dropped frame never slows the flight down
     tw.p = Math.min(1, (performance.now() - tw.start) / (tw.dur * 1000));
     const e = easeInOutCubic(tw.p);

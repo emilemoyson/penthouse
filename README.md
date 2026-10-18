@@ -44,6 +44,8 @@ overlays/panels.tsx       frosted glass panels
 
 Controls: drag to orbit, scroll to zoom, click a room or press 1–4, Esc to zoom out. `?quality=low|high`.
 
+Full view: in a room, scroll down anywhere (or press "Full view"). The camera rises out of the room into the night sky and that room's page slides up over it. Scroll back up at the top of the page, press Esc or click the sky to come back down. The sheet (`src/penthouse/overlays/Sheet.tsx`) shows the normal page in a same-origin iframe, where it hides its nav and background.
+
 ## Feeding it real data
 
 `POST /api/ingest/:kind` with `Authorization: Bearer $INGEST_TOKEN`. One object or an array; re-sending is safe.
@@ -59,9 +61,22 @@ curl -X POST .../api/ingest/meals  -d '{"date":"2026-10-15","time":"08:30","name
 # AI email summaries (from a nightly Gmail + Claude job)
 curl -X POST .../api/ingest/emails -d '{"id":"gmail-msg-id","receivedAt":"2026-10-15T13:05:00Z","sender":"Recruiter","subject":"Next steps","bullets":["Assessment link inside","Due Friday"],"tag":"Job"}'
 
-# calendar events
-curl -X POST .../api/ingest/events -d '{"date":"2026-10-22","title":"Tech Summit","kind":"school"}'
+# calendar events (kind: school | personal | meeting | deadline)
+curl -X POST .../api/ingest/events -d '{"date":"2026-10-22","title":"Tech Summit","kind":"school","time":"6:30 PM","location":"64 Wooster St"}'
+
+# to-dos pulled from emails (re-sending never un-ticks a done item; threadId adds an "Email" link)
+curl -X POST .../api/ingest/todos -d '{"id":"msg123-1","title":"Complete online assessment","due":"2026-10-24","sender":"Acme","threadId":"18c2..."}'
+
+# a gym note in the docs/gym-template.md format (the iPhone "Log workout" Shortcut)
+curl -X POST .../api/ingest/workout-text -d '{"text":"Push\nSat 17 Oct\nFlat DB press\n50 x 8"}'
 ```
+
+Where each source comes from:
+
+- **Gym:** iPhone Notes with the template in `docs/gym-template.md`, sent by the Shortcut in `docs/shortcuts.md`.
+- **Inbox, to-dos, calendar:** the Claude Desktop morning task, prompt in `automation/morning-inbox.md`.
+- **Food:** `scripts/mfp_sync.py` reads the MyFitnessPal diary through your Chrome login, scheduled by `scripts/com.emile.mfp-sync.plist` (setup in the script header).
+- **Jobs:** the Google Sheet, through `apps-script/JobsFeed.gs`.
 
 Panels read `GET /api/penthouse/:zone` (sleep, professional, fitness, nutrition) and refresh on an interval and on tab focus. Anything not connected yet is shown with a "Sample data" badge.
 

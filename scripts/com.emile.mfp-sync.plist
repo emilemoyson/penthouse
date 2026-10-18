@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Runs the MyFitnessPal sync every 2 hours from 8:00 to 22:00, plus 23:30.
+  Install:   cp scripts/com.emile.mfp-sync.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.emile.mfp-sync.plist
+  Remove:    launchctl unload ~/Library/LaunchAgents/com.emile.mfp-sync.plist
+  Log:       ~/Library/Logs/mfp-sync.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.emile.mfp-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/emilemoyson/Documents/penthouse/scripts/.venv/bin/python</string>
+    <string>-W</string><string>ignore</string>
+    <string>/Users/emilemoyson/Documents/penthouse/scripts/mfp_sync.py</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>14</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>20</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>22</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>30</integer></dict>
+  </array>
+  <key>StandardOutPath</key><string>/Users/emilemoyson/Library/Logs/mfp-sync.log</string>
+  <key>StandardErrorPath</key><string>/Users/emilemoyson/Library/Logs/mfp-sync.log</string>
+</dict>
+</plist>

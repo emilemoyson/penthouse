@@ -143,6 +143,25 @@ create table if not exists email_summaries (
   created_at timestamptz not null default now()
 );
 
+create table if not exists todos (
+  id text primary key,            -- stable id from the inbox job (e.g. gmail message id + suffix)
+  title text not null,
+  detail text not null default '',
+  due text,                       -- YYYY-MM-DD
+  sender text not null default '',
+  email_id text,
+  done boolean not null default false,
+  done_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table workouts add column if not exists source text not null default 'manual';
+alter table events add column if not exists time text;
+alter table events add column if not exists location text not null default '';
+alter table events add column if not exists email_id text;
+alter table email_summaries add column if not exists url text;
+alter table todos add column if not exists url text;
+
 create table if not exists kv (
   key text primary key,
   value jsonb not null,

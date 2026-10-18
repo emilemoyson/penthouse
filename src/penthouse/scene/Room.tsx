@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { MeshReflectorMaterial } from "@react-three/drei";
 import { makeSkylineTexture } from "./skyline";
+import { NightSky } from "./NightSky";
 import { artPrint, plaster, roundRug, woodFloor } from "../look/textures";
 import { ArcLamp, BookRow, BookStack, C, Candle, Frame, Plant, TableLamp, Vase } from "../look/decor";
 import { Bookshelf, CoffeeTable, Curtain, LoungeChair, RecordConsole, SideTable, Sofa } from "../look/furniture";
@@ -89,6 +90,7 @@ export function Room({ reflective = true }: { reflective?: boolean }) {
         <meshBasicMaterial map={sky} toneMapped={false} color="#b4aec4" />
       </mesh>
       <GlowLight position={[0, 2.2, -7.5]} color="#6a5aa0" intensity={4} distance={9} />
+      <NightSky />
 
       {/* ---------- left wall ---------- */}
       <mesh position={[-HW - 0.1, ROOM.h / 2, 0]} rotation-y={Math.PI / 2} receiveShadow>

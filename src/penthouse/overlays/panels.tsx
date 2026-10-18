@@ -2,15 +2,21 @@
 
 import { useMemo, useState, useTransition } from "react";
 import clsx from "clsx";
-import { ArrowUpRight, CalendarDays, ChevronDown, Inbox, Plus, RefreshCw, Table2, Trash2, X } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Inbox, ListTodo, Plus, RefreshCw, Table2, Trash2, X } from "lucide-react";
 import type { FitnessData, NutritionData, ProfessionalData, SleepData, Source } from "../data/types";
 import { useFitnessData, useNutritionData, useProfessionalData, useSleepData } from "../data/hooks";
-import { addMeal, deleteMeal } from "../data/actions";
+import { addMeal, deleteMeal, toggleTodo } from "../data/actions";
 import { Bar, Columns, GlassCard, Metric, Pill, Ring } from "./glass";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const short = (s: string | null) => (s ? `${MON[Number(s.slice(5, 7)) - 1]} ${Number(s.slice(8, 10))}` : "–");
 const dow = (s: string) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(s + "T12:00:00Z").getUTCDay()];
+const nyToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+const plusDays = (iso: string, n: number) => {
+  const d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 const hm = (min: number) => `${Math.floor(min / 60)}h ${String(Math.round(min % 60)).padStart(2, "0")}m`;
 
 /* ---------------------------------------------------------------------- */
@@ -148,12 +154,13 @@ const STATUS_TONE: Record<string, "good" | "accent" | "warn" | "bad" | "neutral"
 };
 
 export function ProfessionalPanel({ initial }: { initial: ProfessionalData }) {
-  const { data, loading, refresh } = useProfessionalData(initial);
-  const [tab, setTab] = useState<"jobs" | "inbox" | "calendar">("jobs");
+  const { data, loading, refresh, setData } = useProfessionalData(initial);
+  const [tab, setTab] = useState<"todo" | "jobs" | "inbox" | "calendar">("todo");
   const j = data.jobs;
+  const openTodos = data.todos.items.filter((t) => !t.done).length;
   return (
     <div className="space-y-3">
-      <SourceBar source={data.source} hint="inbox summaries not connected" loading={loading} onRefresh={refresh} />
+      <SourceBar source={data.source} hint={j.ok ? "inbox job not connected" : "job sheet not connected"} loading={loading} onRefresh={refresh} />
       <div className="grid grid-cols-3 gap-2">
         <Metric label="Applied this week" value={j.appliedThisWeek} unit={`/ ${j.weeklyTarget}`} accent="#47dcff" />
         <Metric label="In progress" value={j.active} />
@@ -163,11 +170,13 @@ export function ProfessionalPanel({ initial }: { initial: ProfessionalData }) {
         value={tab}
         onChange={setTab}
         items={[
-          { id: "jobs", label: "Applications", icon: Table2 },
-          { id: "inbox", label: "AI inbox", icon: Inbox },
+          { id: "todo", label: `To-do${openTodos ? ` · ${openTodos}` : ""}`, icon: ListTodo },
+          { id: "jobs", label: "Jobs", icon: Table2 },
+          { id: "inbox", label: "Inbox", icon: Inbox },
           { id: "calendar", label: "Calendar", icon: CalendarDays },
         ]}
       />
+      {tab === "todo" && <TodoList items={data.todos.items} onChange={setData} />}
       {tab === "jobs" && (j.ok ? <JobGrid rows={j.rows} /> : <GlassCard>{j.message}</GlassCard>)}
       {tab === "inbox" && (
         <div className="space-y-2">
@@ -182,7 +191,19 @@ export function ProfessionalPanel({ initial }: { initial: ProfessionalData }) {
                     <span className="text-[11px] text-white/35 tnum">{short(e.receivedAt.slice(0, 10))}</span>
                   </span>
                 </div>
-                <div className="mt-0.5 truncate text-[12px] text-white/45">{e.subject}</div>
+                <div className="mt-0.5 flex items-center justify-between gap-2">
+                  <span className="truncate text-[12px] text-white/45">{e.subject}</span>
+                  {e.url && (
+                    <a
+                      href={e.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] text-sky-300/80 transition hover:bg-white/10 hover:text-sky-200"
+                    >
+                      Open <ArrowUpRight size={11} />
+                    </a>
+                  )}
+                </div>
                 <ul className="mt-2 space-y-1 text-[12.5px] leading-relaxed text-white/80">
                   {e.bullets.map((b, i) => (
                     <li key={i} className="flex gap-2">
@@ -196,7 +217,7 @@ export function ProfessionalPanel({ initial }: { initial: ProfessionalData }) {
           </div>
         </div>
       )}
-      {tab === "calendar" && <CalendarFeed items={data.calendar.items} />}
+      {tab === "calendar" && <WeekCalendar weekStart={data.calendar.weekStart} items={data.calendar.items} />}
     </div>
   );
 }
@@ -254,35 +275,118 @@ function JobGrid({ rows }: { rows: ProfessionalData["jobs"]["rows"] }) {
   );
 }
 
-function CalendarFeed({ items }: { items: ProfessionalData["calendar"]["items"] }) {
-  const groups = useMemo(() => {
+function TodoList({ items, onChange }: { items: ProfessionalData["todos"]["items"]; onChange: (d: ProfessionalData) => void }) {
+  const [pending, start] = useTransition();
+  if (!items.length) return <GlassCard>Nothing to do from your inbox. New items appear after the morning inbox job runs.</GlassCard>;
+  return (
+    <ul className={clsx("max-h-[380px] space-y-1.5 overflow-y-auto pr-1 [scrollbar-width:thin]", pending && "opacity-70")}>
+      {items.map((t) => (
+        <li key={t.id} className="flex gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3">
+          <button
+            onClick={() => start(async () => onChange(await toggleTodo(t.id, !t.done)))}
+            className={clsx(
+              "mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-md border transition",
+              t.done ? "border-emerald-400/70 bg-emerald-400/20 text-emerald-300" : "border-white/25 hover:border-white/50",
+            )}
+            aria-label={t.done ? "Mark as not done" : "Mark as done"}
+          >
+            {t.done && <Check size={12} />}
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className={clsx("text-[13px] leading-snug", t.done && "text-white/40 line-through")}>{t.title}</div>
+            {(t.detail || t.sender) && (
+              <div className="mt-0.5 text-[11.5px] text-white/40">
+                {t.sender}
+                {t.sender && t.detail ? " · " : ""}
+                {t.detail}
+              </div>
+            )}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {t.due && <span className="text-[11px] text-amber-200/80 tnum">{short(t.due)}</span>}
+            {t.url && (
+              <a href={t.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[11px] text-sky-300/80 hover:text-sky-200" aria-label="Open the email">
+                Email <ArrowUpRight size={11} />
+              </a>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const KIND_LABEL: Record<string, string> = { school: "IE NYC", meeting: "Meeting", deadline: "Deadline", personal: "Personal" };
+
+/** Monday → Sunday of one week, each day with what's on. ‹ › move between the 5 loaded weeks. */
+function WeekCalendar({ weekStart, items }: { weekStart: string; items: ProfessionalData["calendar"]["items"] }) {
+  const [offset, setOffset] = useState(0);
+  const today = nyToday();
+  const monday = plusDays(weekStart, offset * 7);
+  const days = Array.from({ length: 7 }, (_, i) => plusDays(monday, i));
+  const byDay = useMemo(() => {
     const m = new Map<string, typeof items>();
     for (const it of items) m.set(it.date, [...(m.get(it.date) || []), it]);
-    return [...m.entries()];
+    return m;
   }, [items]);
-  if (!groups.length) return <GlassCard>Nothing in the next 30 days.</GlassCard>;
+  const label = offset === 0 ? "This week" : offset === 1 ? "Next week" : `${short(days[0])} – ${short(days[6])}`;
+
   return (
-    <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
-      {groups.map(([d, list]) => (
-        <div key={d} className="flex gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3">
-          <div className="w-11 shrink-0 text-center leading-tight">
-            <div className="text-[10px] uppercase tracking-wider text-white/40">{dow(d)}</div>
-            <div className="text-[19px] font-semibold tnum">{Number(d.slice(8, 10))}</div>
-            <div className="text-[10px] uppercase tracking-wider text-white/35">{MON[Number(d.slice(5, 7)) - 1]}</div>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <button onClick={() => setOffset((o) => Math.max(0, o - 1))} disabled={offset === 0} className="grid size-7 place-items-center rounded-md text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-25" aria-label="Previous week">
+          <ChevronLeft size={15} />
+        </button>
+        <div className="text-center leading-tight">
+          <div className="text-[13px] font-medium">{label}</div>
+          <div className="text-[11px] text-white/40">
+            {short(days[0])} – {short(days[6])}
           </div>
-          <ul className="min-w-0 flex-1 space-y-1.5 border-l border-white/10 pl-3">
-            {list.map((e) => (
-              <li key={e.title}>
-                <div className="text-[13px] leading-snug">{e.title}</div>
-                <div className="text-[11.5px] text-white/40">
-                  {e.time ? `${e.time} · ` : ""}
-                  {e.kind === "school" ? "IE NYC" : "Personal"}
-                </div>
-              </li>
-            ))}
-          </ul>
         </div>
-      ))}
+        <button onClick={() => setOffset((o) => Math.min(4, o + 1))} disabled={offset === 4} className="grid size-7 place-items-center rounded-md text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-25" aria-label="Next week">
+          <ChevronRight size={15} />
+        </button>
+      </div>
+      <ul className="space-y-1">
+        {days.map((d) => {
+          const list = byDay.get(d) || [];
+          const isToday = d === today;
+          const past = d < today;
+          return (
+            <li
+              key={d}
+              className={clsx(
+                "flex gap-3 rounded-xl border px-3 py-2",
+                isToday ? "border-[#47dcff]/40 bg-[#47dcff]/[0.08]" : "border-white/[0.06] bg-white/[0.03]",
+                past && "opacity-50",
+              )}
+            >
+              <div className="w-10 shrink-0 leading-tight">
+                <div className={clsx("text-[10.5px] font-medium uppercase tracking-wider", isToday ? "text-[#47dcff]" : "text-white/40")}>{dow(d)}</div>
+                <div className="text-[16px] font-semibold tnum">{Number(d.slice(8, 10))}</div>
+              </div>
+              <div className="min-w-0 flex-1 self-center">
+                {isToday && <div className="mb-1"><Pill tone="accent">Today</Pill></div>}
+                {list.length ? (
+                  <ul className="space-y-1">
+                    {list.map((e, i) => (
+                      <li key={e.title + i} className="flex gap-2 text-[12.5px] leading-snug">
+                        <span className="w-14 shrink-0 text-white/45 tnum">{e.time || "All day"}</span>
+                        <span className="min-w-0">
+                          <span className="text-white/90">{e.title}</span>
+                          <span className="text-white/35"> · {e.location || KIND_LABEL[e.kind] || "Personal"}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="text-[12px] text-white/25">Free</span>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -508,14 +612,6 @@ export function NutritionPanel({ initial }: { initial: NutritionData }) {
         <Columns values={data.week.map((w) => w.kcal)} labels={data.week.map((w) => dow(w.date))} color="#ffcb6b" target={data.targets.kcal} format={(v) => `${v} kcal`} />
       </GlassCard>
     </div>
-  );
-}
-
-export function FullPageLink({ href }: { href: string }) {
-  return (
-    <a href={href} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-white/60 transition hover:bg-white/10 hover:text-white">
-      Full page <ArrowUpRight size={13} />
-    </a>
   );
 }
 

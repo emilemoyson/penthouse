@@ -18,7 +18,7 @@ cp .env.example .env.local   # fill APP_PASSWORD and DATABASE_URL at minimum
 npm run dev                  # http://localhost:3000
 ```
 
-For a local database: `brew install postgresql@16 && brew services start postgresql@16 && createdb hub`, then `DATABASE_URL=postgres://localhost/hub`.
+For a local database: `brew install postgresql@16 && brew services start postgresql@16 && createdb hub`, then `DATABASE_URL=postgres://localhost/hub`. On Emile's Mac the Homebrew Postgres runs on port 5433 (an EDB PostgreSQL 18 owns 5432), so it's `postgres://localhost:5433/hub`.
 
 Check before committing: `npx tsc --noEmit` and `npm run build`.
 
@@ -48,11 +48,15 @@ Never commit `.env.local`.
 ## Data
 
 - `src/penthouse/data/server.ts` loads each panel (DB + jobs sheet) with labelled sample fallbacks; `hooks.ts` refreshes via `GET /api/penthouse/:zone` (sleep, professional, fitness, nutrition).
-- `POST /api/ingest/:kind` (sleep, meals, emails, events) with `Authorization: Bearer $INGEST_TOKEN`. Validated with zod, idempotent upserts. Examples in README.
+- `POST /api/ingest/:kind` (sleep, meals, emails, events, todos, workout-text) with `Authorization: Bearer $INGEST_TOKEN`. Validated with zod, idempotent upserts. Examples in README.
+- Gym notes: `src/lib/parse-workout.ts` reads the `docs/gym-template.md` format. Shortcut imports are `workouts.source = 'shortcut'` and are replaced per (date, kind) on re-send.
+- MyFitnessPal: `scripts/mfp_sync.py` (Python venv in `scripts/.venv`, env in `scripts/.env`). Days with `source = 'mfp'` meals ignore manual rows in the kitchen panel.
+- The rise (`src/penthouse/rise.ts`): in a focused room, scrolling anywhere drives one 0 to 1 value. `CameraRig` eases it each frame and cranes the camera from the zone pose into the sky, `scene/NightSky.tsx` fades a star dome in, the panel fades out, and `overlays/Sheet.tsx` slides the room's page (`zones.ts` `href`) up in a same-origin iframe. Letting go part-way snaps to the nearer end; scrolling up at the top of the page, Esc or a click on the sky goes back down. In a frame, the root layout's script adds `html.embedded`, which hides `[data-app-nav]` and the page background (`globals.css`). Intercepting routes were tried and dropped: Next 15 throws "initialTree is not iterable" because the target pages live in the `(app)` group with their own layout.
 
 ## Gotchas
 
 - Use `performance.now()` for animations that must finish (camera), not frame deltas; slow GPUs otherwise never arrive.
+- The camera tween must run to p = 1 even after `arrive()` flips the phase to "focused"; the rise only takes over once `tween.current` is null.
 - Canvas `ctx.filter` blur per shape is very slow; blur by downscaling and upscaling instead.
 - Floor slab top sits at y = -0.01 to avoid z-fighting with the floor plane.
 - Recharts v3 tooltip payload types are readonly; see the custom `TipProps`.
@@ -66,4 +70,6 @@ The owner prefers plain, understated wording in UI copy and docs. No em dashes.
 
 - Push to GitHub and deploy on Vercel + Neon.
 - Strava / Garmin import for runs and sleep.
-- Nightly Gmail summary job posting to `/api/ingest/emails`.
+- Paste `automation/morning-inbox.md` into the Claude Desktop morning task once deployed.
+- Build the iPhone "Log workout" Shortcut (`docs/shortcuts.md`) once deployed.
+- Install the MyFitnessPal launchd job once Emile is logged in to MyFitnessPal in Chrome.

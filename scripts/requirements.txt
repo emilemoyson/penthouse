@@ -1,0 +1,2 @@
+myfitnesspal>=2.1
+browser-cookie3

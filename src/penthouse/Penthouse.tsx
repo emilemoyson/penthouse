@@ -1,21 +1,55 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { X, LayoutGrid } from "lucide-react";
+import { ChevronsDown, X, LayoutGrid } from "lucide-react";
 import { useZone, type ZoneId } from "./store";
 import { ZONES, zoneById } from "./zones";
 import type { PenthouseData } from "./data/types";
 import { labelEls } from "./labels";
-import { FitnessPanel, FullPageLink, NutritionPanel, ProfessionalPanel, SleepPanel } from "./overlays/panels";
+import { FitnessPanel, NutritionPanel, ProfessionalPanel, SleepPanel } from "./overlays/panels";
+import { Sheet, openFullView } from "./overlays/Sheet";
+import { innerCanScroll, nudgeRise, onRiseFrame } from "./rise";
 
 // WebGL only runs in the browser
 const Scene = dynamic(() => import("./scene/Scene"), { ssr: false, loading: () => <Loader /> });
 
 export function Penthouse({ data }: { data: PenthouseData }) {
+  const root = useRef<HTMLDivElement>(null);
+
+  // In a focused room, scrolling anywhere (room, panel, empty space) drives the rise into the sky
+  // and the full view. A list inside the panel that can still scroll gets the wheel first.
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const focused = () => useZone.getState().phase === "focused";
+    const onWheel = (e: WheelEvent) => {
+      if (!focused() || innerCanScroll(e.target, e.deltaY, el)) return;
+      nudgeRise(e.deltaMode === 1 ? e.deltaY * 32 : e.deltaY);
+    };
+    let touchY: number | null = null;
+    const onTouchStart = (e: TouchEvent) => (touchY = e.touches[0].clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0].clientY;
+      if (touchY != null && focused() && !innerCanScroll(e.target, touchY - y, el)) nudgeRise((touchY - y) * 1.6);
+      touchY = y;
+    };
+    const onTouchEnd = () => (touchY = null);
+    el.addEventListener("wheel", onWheel, { passive: true });
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: true });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
   return (
-    <div className="dark-room fixed inset-0 overflow-hidden bg-[#0b0908] text-white">
+    <div ref={root} className="dark-room fixed inset-0 overflow-hidden bg-[#0b0908] text-white">
       <div className="absolute inset-0">
         <Scene />
       </div>
@@ -91,7 +125,12 @@ function Hud() {
       </a>
 
       {/* bottom dock */}
-      <div className={clsx("absolute inset-x-0 bottom-5 flex flex-col items-center gap-3 px-4 transition-all duration-500", free ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0")}>
+      <div
+        className={clsx(
+          "absolute inset-x-0 bottom-5 flex flex-col items-center gap-3 px-4 transition-all duration-500",
+          free ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0",
+        )}
+      >
         <p className={clsx("text-[12px] text-white/40 transition-opacity duration-700", hint ? "opacity-100" : "opacity-0")}>Drag to look around · scroll to zoom · click a room</p>
         <nav className="flex gap-1 rounded-2xl border border-white/10 bg-white/[0.05] p-1.5 shadow-2xl backdrop-blur-xl">
           {ZONES.map((z) => (
@@ -130,49 +169,82 @@ function Overlay({ data }: { data: PenthouseData }) {
   const visible = phase === "focused" && zone != null;
   const def = shown ? zoneById(shown) : null;
 
+  // as the camera rises the panel lifts and fades, leaving the sky and the full view
+  const lift = useRef<HTMLDivElement>(null);
+  useEffect(
+    () =>
+      onRiseFrame((e) => {
+        const el = lift.current;
+        if (!el) return;
+        const f = Math.min(1, e * 2.4);
+        el.style.opacity = String(1 - f);
+        el.style.transform = f ? `translate3d(0, ${-f * 36}px, 0) scale(${1 - f * 0.03})` : "";
+        el.style.visibility = f >= 1 ? "hidden" : "visible";
+      }),
+    [],
+  );
+
   return (
-    <aside
-      aria-hidden={!visible}
-      className={clsx(
-        "absolute z-20 flex flex-col overflow-hidden rounded-[26px] border text-white",
-        "border-white/10 bg-black/40 shadow-[0_24px_90px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-[20px] backdrop-saturate-[1.4]",
-        "inset-x-3 bottom-3 top-[44dvh] lg:inset-x-auto lg:bottom-6 lg:right-6 lg:top-6 lg:w-[min(560px,42vw)]",
-        "transition-all duration-500 ease-out",
-        visible ? "translate-y-0 opacity-100 lg:translate-x-0" : "pointer-events-none translate-y-6 opacity-0 lg:translate-x-8 lg:translate-y-0",
-      )}
-    >
-      {def && (
-        <>
-          {/* accent glow */}
-          <div className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full opacity-30 blur-3xl" style={{ background: def.color }} />
-          <header className="relative flex items-start justify-between gap-3 border-b border-white/[0.08] px-5 pb-4 pt-5 sm:px-6">
-            <div>
-              <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-white/45">
-                <span className="size-1.5 rounded-full" style={{ background: def.color, boxShadow: `0 0 10px ${def.color}` }} />
-                {def.label}
+    <>
+      <div ref={lift} className="pointer-events-none absolute inset-0 z-20 will-change-transform">
+        <aside
+          aria-hidden={!visible}
+          className={clsx(
+            "absolute z-20 flex flex-col overflow-hidden rounded-[26px] border text-white",
+            "border-white/10 bg-black/40 shadow-[0_24px_90px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-[20px] backdrop-saturate-[1.4]",
+            "inset-x-3 bottom-3 top-[44dvh] lg:inset-x-auto lg:bottom-6 lg:right-6 lg:top-6 lg:w-[min(560px,42vw)]",
+            "transition-all duration-500 ease-out",
+            visible ? "pointer-events-auto translate-y-0 opacity-100 lg:translate-x-0" : "pointer-events-none translate-y-6 opacity-0 lg:translate-x-8 lg:translate-y-0",
+          )}
+        >
+          {def && (
+            <>
+              {/* accent glow */}
+              <div className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full opacity-30 blur-3xl" style={{ background: def.color }} />
+              <header className="relative flex items-start justify-between gap-3 border-b border-white/[0.08] px-5 pb-4 pt-5 sm:px-6">
+                <div>
+                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-white/45">
+                    <span className="size-1.5 rounded-full" style={{ background: def.color, boxShadow: `0 0 10px ${def.color}` }} />
+                    {def.label}
+                  </div>
+                  <h2 className="mt-1.5 text-[22px] font-semibold tracking-tight">{def.title}</h2>
+                  <p className="text-[13px] text-white/50">{def.subtitle}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={openFullView}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
+                  >
+                    Full view <ChevronsDown size={13} />
+                  </button>
+                  <button
+                    onClick={close}
+                    className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.14] hover:text-white"
+                    aria-label="Zoom out"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </header>
+              <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6 [scrollbar-width:thin]">
+                {shown === "bed" && <SleepPanel initial={data.sleep} />}
+                {shown === "desk" && <ProfessionalPanel initial={data.professional} />}
+                {shown === "gym" && <FitnessPanel initial={data.fitness} />}
+                {shown === "kitchen" && <NutritionPanel initial={data.nutrition} />}
+                <button onClick={openFullView} className="mt-5 flex w-full flex-col items-center gap-1 pb-1 text-[11.5px] text-white/35 transition hover:text-white/70">
+                  Scroll for the full view
+                  <ChevronsDown size={15} className="animate-bounce" />
+                </button>
               </div>
-              <h2 className="mt-1.5 text-[22px] font-semibold tracking-tight">{def.title}</h2>
-              <p className="text-[13px] text-white/50">{def.subtitle}</p>
-            </div>
-            <div className="flex items-center gap-1">
-              <FullPageLink href={def.href} />
-              <button onClick={close} className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.14] hover:text-white" aria-label="Zoom out">
-                <X size={16} />
-              </button>
-            </div>
-          </header>
-          <div className="relative flex-1 overflow-y-auto px-5 py-4 sm:px-6 [scrollbar-width:thin]">
-            {shown === "bed" && <SleepPanel initial={data.sleep} />}
-            {shown === "desk" && <ProfessionalPanel initial={data.professional} />}
-            {shown === "gym" && <FitnessPanel initial={data.fitness} />}
-            {shown === "kitchen" && <NutritionPanel initial={data.nutrition} />}
-          </div>
-          <footer className="relative hidden border-t border-white/[0.06] px-6 py-2.5 text-[11.5px] text-white/35 lg:block">
-            <kbd className="font-mono">Esc</kbd> to zoom out · <kbd className="font-mono">1–4</kbd> to jump between rooms
-          </footer>
-        </>
-      )}
-    </aside>
+              <footer className="relative hidden border-t border-white/[0.06] px-6 py-2.5 text-[11.5px] text-white/35 lg:block">
+                Scroll for the full view · <kbd className="font-mono">Esc</kbd> to zoom out · <kbd className="font-mono">1–4</kbd> to jump between rooms
+              </footer>
+            </>
+          )}
+        </aside>
+      </div>
+      {def && visible && <Sheet href={def.href} />}
+    </>
   );
 }
 
@@ -215,4 +287,3 @@ function ZoneLabels() {
     </div>
   );
 }
-

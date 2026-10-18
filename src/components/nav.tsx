@@ -34,7 +34,7 @@ export function Sidebar() {
     </Link>
   );
   return (
-    <aside className="sticky top-0 hidden h-dvh w-[232px] shrink-0 flex-col border-r border-line bg-[var(--sidebar)] px-3 py-5 lg:flex">
+    <aside data-app-nav className="sticky top-0 hidden h-dvh w-[232px] shrink-0 flex-col border-r border-line bg-[var(--sidebar)] px-3 py-5 lg:flex">
       <div className="px-2.5">
         <Brand />
       </div>
@@ -71,7 +71,7 @@ export function Sidebar() {
 
 export function MobileTop() {
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg/85 px-4 py-3 backdrop-blur lg:hidden">
+    <header data-app-nav className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg/85 px-4 py-3 backdrop-blur lg:hidden">
       <Brand />
       <div className="flex items-center gap-1">
         <ThemeToggle />
@@ -88,7 +88,7 @@ export function MobileTop() {
 export function MobileTabs() {
   const path = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+    <nav data-app-nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
       {ITEMS.map(({ href, label, icon: Icon }) => {
         const on = path.startsWith(href);
         return (

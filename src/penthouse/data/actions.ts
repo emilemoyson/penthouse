@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db, setKV } from "@/lib/db";
 import { todayISO } from "@/lib/dates";
-import { getNutritionData } from "./server";
+import { getNutritionData, getProfessionalData } from "./server";
 
 const MealIn = z.object({
   name: z.string().trim().min(1).max(200),
@@ -40,4 +40,12 @@ export async function setNutritionTargets(t: { kcal: number; protein: number; ca
   await setKV("nutrition_targets", t);
   revalidatePath("/");
   return getNutritionData();
+}
+
+/** Office panel: tick a to-do on or off, returns the refreshed office payload. */
+export async function toggleTodo(id: string, done: boolean) {
+  const sql = await db();
+  await sql`update todos set done = ${done}, done_at = ${done ? new Date() : null} where id = ${id}`;
+  revalidatePath("/");
+  return getProfessionalData();
 }

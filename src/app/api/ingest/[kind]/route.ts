@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { todayISO } from "@/lib/dates";
+import { parseWorkoutNote } from "@/lib/parse-workout";
+import { SESSION_KINDS } from "@/lib/exercises";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +16,11 @@ export const dynamic = "force-dynamic";
  *
  *   sleep   { date, totalMin, deepMin?, remMin?, lightMin?, awakeMin?, recovery?, hrv?, rhr?, bedtime?, waketime?, source? }
  *   meals   { date, time?, name, kcal, protein?, carbs?, fat?, source? }
- *   emails  { id, receivedAt, sender, subject?, summary?, bullets?: string[], tag? }
- *   events  { date, title, note?, kind?: "school" | "personal" }
+ *   emails  { id, receivedAt, sender, subject?, summary?, bullets?: string[], tag?, threadId?, url? }   (threadId → "Open in Gmail" link)
+ *   events  { date, title, note?, kind?: "school" | "personal" | "meeting" | "deadline", time?, location?, emailId? }
+ *   todos   { id, title, detail?, due?, sender?, emailId?, threadId?, url? }
+ *   workout-text  { text, date? }   a gym note in the docs/gym-template.md format (the iPhone "Log workout" Shortcut).
+ *                 Every dated session in it is imported; re-sending replaces what that note sent before for the same day and type.   (re-sending never un-ticks a done item)
  */
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -52,13 +58,33 @@ const Email = z.object({
   summary: z.string().max(2000).default(""),
   bullets: z.array(z.string().max(400)).max(8).default([]),
   tag: z.string().max(30).default("Other"),
+  threadId: z.string().max(200).optional(),
+  url: z.string().url().max(500).optional(),
 });
 const Event = z.object({
   date,
   title: z.string().min(1).max(200),
   note: z.string().max(1000).default(""),
-  kind: z.enum(["school", "personal"]).default("personal"),
+  kind: z.enum(["school", "personal", "meeting", "deadline"]).default("personal"),
+  time: z.string().max(20).optional(),
+  location: z.string().max(200).default(""),
+  emailId: z.string().max(200).optional(),
 });
+const WorkoutText = z.object({ text: z.string().min(1).max(50_000), date: date.optional() });
+const Todo = z.object({
+  id: z.string().min(1).max(200),
+  title: z.string().min(1).max(200),
+  detail: z.string().max(1000).default(""),
+  due: date.optional(),
+  sender: z.string().max(200).default(""),
+  emailId: z.string().max(200).optional(),
+  threadId: z.string().max(200).optional(),
+  url: z.string().url().max(500).optional(),
+});
+
+/** Link to the email in Gmail: an explicit url wins, otherwise built from the thread id. */
+const gmailUrl = (r: { url?: string; threadId?: string }) =>
+  r.url ?? (r.threadId ? `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(r.threadId)}` : null);
 
 function authorised(req: Request) {
   const token = process.env.INGEST_TOKEN;
@@ -80,6 +106,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
   } catch {
     return NextResponse.json({ error: "body must be JSON" }, { status: 400 });
   }
+  if (kind === "workout-text") return ingestWorkoutText(body);
   const items = Array.isArray(body) ? body : [body];
   if (items.length > 500) return NextResponse.json({ error: "max 500 records per request" }, { status: 413 });
   const sql = await db();
@@ -113,9 +140,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
       case "emails": {
         const rows = z.array(Email).parse(items);
         for (const r of rows) {
-          await sql`insert into email_summaries (id, received_at, sender, subject, summary, bullets, tag)
-            values (${r.id}, ${r.receivedAt}, ${r.sender}, ${r.subject}, ${r.summary}, ${sql.json(r.bullets)}, ${r.tag})
-            on conflict (id) do update set summary = excluded.summary, bullets = excluded.bullets, tag = excluded.tag`;
+          await sql`insert into email_summaries (id, received_at, sender, subject, summary, bullets, tag, url)
+            values (${r.id}, ${r.receivedAt}, ${r.sender}, ${r.subject}, ${r.summary}, ${sql.json(r.bullets)}, ${r.tag}, ${gmailUrl(r)})
+            on conflict (id) do update set summary = excluded.summary, bullets = excluded.bullets, tag = excluded.tag,
+              url = coalesce(excluded.url, email_summaries.url)`;
         }
         return NextResponse.json({ ok: true, kind, count: rows.length });
       }
@@ -123,8 +151,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
         const rows = z.array(Event).parse(items);
         for (const r of rows) {
           const hit = await sql`select id from events where date = ${r.date} and title = ${r.title} limit 1`;
-          if (hit.length) await sql`update events set note = ${r.note}, kind = ${r.kind} where id = ${hit[0].id}`;
-          else await sql`insert into events (date, title, note, kind) values (${r.date}, ${r.title}, ${r.note}, ${r.kind})`;
+          if (hit.length)
+            await sql`update events set note = ${r.note}, kind = ${r.kind}, time = ${r.time ?? null}, location = ${r.location}, email_id = ${r.emailId ?? null}
+                      where id = ${hit[0].id}`;
+          else
+            await sql`insert into events (date, title, note, kind, time, location, email_id)
+                      values (${r.date}, ${r.title}, ${r.note}, ${r.kind}, ${r.time ?? null}, ${r.location}, ${r.emailId ?? null})`;
+        }
+        return NextResponse.json({ ok: true, kind, count: rows.length });
+      }
+      case "todos": {
+        const rows = z.array(Todo).parse(items);
+        for (const r of rows) {
+          await sql`insert into todos (id, title, detail, due, sender, email_id, url)
+            values (${r.id}, ${r.title}, ${r.detail}, ${r.due ?? null}, ${r.sender}, ${r.emailId ?? null}, ${gmailUrl(r)})
+            on conflict (id) do update set title = excluded.title, detail = excluded.detail, due = excluded.due, sender = excluded.sender,
+              url = coalesce(excluded.url, todos.url)`;
         }
         return NextResponse.json({ ok: true, kind, count: rows.length });
       }
@@ -135,4 +177,44 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
     if (e instanceof z.ZodError) return NextResponse.json({ error: "invalid payload", issues: e.issues.slice(0, 5) }, { status: 422 });
     return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 500 });
   }
+}
+
+/** The gym note Shortcut. Answers in plain text-ish JSON the Shortcut can show as-is. */
+async function ingestWorkoutText(body: unknown) {
+  const parsed = WorkoutText.safeParse(typeof body === "string" ? { text: body } : body);
+  if (!parsed.success) return NextResponse.json({ error: "send { text: <the note> }" }, { status: 422 });
+  const { sessions, skipped } = parseWorkoutNote(parsed.data.text, parsed.data.date ?? todayISO());
+  if (!sessions.length) {
+    return NextResponse.json({ ok: false, message: "No sets found. Check the note follows the gym template.", skipped }, { status: 422 });
+  }
+  if (sessions.length > 120) return NextResponse.json({ error: "max 120 sessions per note" }, { status: 413 });
+
+  const sql = await db();
+  await sql.begin(async (tx) => {
+    for (const s of sessions) {
+      // replace only what a shortcut sent for this day and type; hand-logged and imported workouts stay
+      await tx`delete from workouts where source = 'shortcut' and date = ${s.date} and kind = ${s.kind}`;
+      const [w] = await tx<{ id: number }[]>`insert into workouts (date, kind, notes, source) values (${s.date}, ${s.kind}, ${s.notes}, 'shortcut') returning id`;
+      for (const [order, ex] of s.exercises.entries()) {
+        if (!ex.known) await tx`insert into exercises (name, muscle, kind) values (${ex.name}, 'Other', 'compound') on conflict (name) do nothing`;
+        for (const [i, st] of ex.sets.entries()) {
+          await tx`insert into sets (workout_id, exercise, ex_order, set_no, weight, unit, reps, reps_alt)
+                   values (${w.id}, ${ex.name}, ${order}, ${i + 1}, ${st.weight}, ${st.unit}, ${st.reps}, ${st.alt})`;
+        }
+      }
+    }
+  });
+
+  const fmt = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const latest = [...sessions].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const sets = latest.exercises.reduce((n, e) => n + e.sets.length, 0);
+  const newNames = [...new Set(sessions.flatMap((s) => s.exercises.filter((e) => !e.known).map((e) => e.name)))];
+  const message = [
+    `Saved ${sessions.length} session${sessions.length > 1 ? "s" : ""}. Latest: ${SESSION_KINDS.find((k) => k.id === latest.kind)?.label ?? latest.kind} on ${fmt(latest.date)}, ${latest.exercises.length} exercises, ${sets} sets.`,
+    newNames.length ? `New exercises: ${newNames.join(", ")}.` : "",
+    skipped.length ? `Couldn't read: ${skipped.join(" | ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return NextResponse.json({ ok: true, kind: "workout-text", sessions: sessions.length, skipped, message });
 }

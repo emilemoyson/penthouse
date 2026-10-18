@@ -90,6 +90,15 @@
 html {
   background: var(--bg);
 }
+
+/* Shown inside the penthouse's full-view sheet (iframe): the sheet's glass is the background, no nav */
+html.embedded,
+html.embedded body {
+  background: transparent;
+}
+html.embedded [data-app-nav] {
+  display: none;
+}
 body {
   background:
     radial-gradient(1100px 560px at 78% -12%, var(--glow-a), transparent 65%),

@@ -18,7 +18,8 @@ export const viewport: Viewport = {
   ],
 };
 
-const themeScript = `try{if(localStorage.getItem("theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}`;
+// Inside the penthouse's full-view sheet (an iframe) pages drop their nav and background and stay dark.
+const themeScript = `try{if(window.self!==window.top){document.documentElement.classList.add("embedded")}else if(localStorage.getItem("theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

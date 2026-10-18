@@ -78,7 +78,8 @@ export async function getSleepData(today = todayISO()): Promise<SleepData> {
 /* -------------------------------------------------------------------------- */
 
 export async function getProfessionalData(today = todayISO()): Promise<ProfessionalData> {
-  const sql = await db();
+  // no database: still show the sheet and placeholders instead of breaking the home page
+  const sql = await db().catch(() => null);
 
   // Jobs: the Job Search 2027 sheet
   const res = await loadJobs().catch(() => null);
@@ -102,8 +103,10 @@ export async function getProfessionalData(today = todayISO()): Promise<Professio
   }
 
   // AI email summaries: written by the inbox job into email_summaries
-  const mail = await sql<{ id: string; received_at: Date; sender: string; subject: string; summary: string; bullets: string[]; tag: string }[]>`
-    select id, received_at, sender, subject, summary, bullets, tag from email_summaries order by received_at desc limit 12`.catch(() => []);
+  const mail = sql
+    ? await sql<{ id: string; received_at: Date; sender: string; subject: string; summary: string; bullets: string[]; tag: string; url: string | null }[]>`
+        select id, received_at, sender, subject, summary, bullets, tag, url from email_summaries order by received_at desc limit 12`.catch(() => [])
+    : [];
   const emails: ProfessionalData["emails"] = mail.length
     ? {
         source: "live",
@@ -114,28 +117,43 @@ export async function getProfessionalData(today = todayISO()): Promise<Professio
           subject: m.subject,
           bullets: Array.isArray(m.bullets) && m.bullets.length ? m.bullets : m.summary ? [m.summary] : [],
           tag: m.tag,
+          url: m.url ?? undefined,
         })),
       }
     : { source: "sample", items: sampleEmails(today) };
 
   // Calendar: events table (Ledger + school events). HOOK: merge Google Calendar here (calendar.events.list, timeMin=now).
-  const ev = await sql<{ date: string; title: string; kind: string; note: string }[]>`
-    select date, title, kind, note from events where date >= ${today} and date <= ${addDays(today, 30)} order by date limit 20`.catch(() => []);
+  const weekStart = mondayOf(today);
+  const ev = sql
+    ? await sql<{ date: string; title: string; kind: string; note: string; time: string | null; location: string }[]>`
+        select date, title, kind, note, time, location from events where date >= ${weekStart} and date <= ${addDays(weekStart, 34)} order by date, id limit 200`.catch(() => [])
+    : [];
   const calendar: ProfessionalData["calendar"] = {
-    source: "live",
+    source: sql ? "live" : "sample",
+    weekStart,
     items: ev.map<CalendarItem>((e) => {
       const m = e.note?.match(/\b(\d{1,2}(:\d{2})?\s?(am|pm|AM|PM))/);
-      return { date: e.date, time: m ? m[1] : null, title: e.title, kind: e.kind };
+      return { date: e.date, time: e.time || (m ? m[1] : null), title: e.title, kind: e.kind, location: e.location || undefined };
     }),
   };
 
-  const parts = [jobs.ok, emails.source === "live", true];
+  // To-dos pulled out of emails by the morning inbox job (POST /api/ingest/todos)
+  const td = sql
+    ? await sql<{ id: string; title: string; detail: string; due: string | null; sender: string; done: boolean; url: string | null }[]>`
+        select id, title, detail, due, sender, done, url from todos
+        where not done or done_at > now() - interval '1 day'
+        order by done, due nulls last, created_at desc limit 40`.catch(() => [])
+    : [];
+  const todos: ProfessionalData["todos"] = { source: sql ? "live" : "sample", items: td.map((t) => ({ ...t })) };
+
+  const parts = [jobs.ok, emails.source === "live", calendar.source === "live"];
   return {
     source: parts.every(Boolean) ? "live" : parts.some(Boolean) ? "partial" : "sample",
     updatedAt: now(),
     jobs,
     emails,
     calendar,
+    todos,
   };
 }
 
@@ -246,8 +264,11 @@ export async function getNutritionData(today = todayISO()): Promise<NutritionDat
       week: sampleKcalWeek(today),
     };
   }
-  const rows = await sql<{ id: number; date: string; time: string; name: string; kcal: number; protein: number; carbs: number; fat: number }[]>`
-    select id, date, time, name, kcal, protein, carbs, fat from meals where date >= ${addDays(today, -6)} order by date, time, id`;
+  const all = await sql<{ id: number; date: string; time: string; name: string; kcal: number; protein: number; carbs: number; fat: number; source: string }[]>`
+    select id, date, time, name, kcal, protein, carbs, fat, source from meals where date >= ${addDays(today, -6)} order by date, time, id`;
+  // a day synced from MyFitnessPal is complete on its own, so skip hand-logged rows that day to avoid double counting
+  const mfpDays = new Set(all.filter((r) => r.source === "mfp").map((r) => r.date));
+  const rows = all.filter((r) => !mfpDays.has(r.date) || r.source === "mfp");
   const meals = rows.filter((r) => r.date === today);
   const byDay = new Map<string, number>();
   for (const r of rows) byDay.set(r.date, (byDay.get(r.date) || 0) + r.kcal);
