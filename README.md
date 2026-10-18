@@ -20,29 +20,29 @@ Tables are created on first load, and your gym notes, old Ledger logs and events
 
 ## The penthouse (src/penthouse)
 
-A midnight lofi voxel penthouse. Everything (furniture, the four characters, the city) is built in code from voxels and rendered with instancing, so the whole scene is a few dozen draw calls.
+A cosy apartment at night: oak floors, linen curtains, a bouclé sofa, plants, warm lamps and the city through the glass. Everything (furniture, the four characters, textures, the skyline) is built in code, so there are no model files to load.
 
 ```
-store.ts                  zone + camera phase (overview → flying → focused → returning), quality, pixel filter
-zones.ts                  the 4 zones: camera poses, lens (fov), colours, keys
-voxel/builder.ts          VoxelBuilder: box / ellipsoid / cylinder / heightfield / paint, interior culling, colour jitter
-voxel/VoxelModel.tsx      instanced renderer: lit voxels (cast + receive shadows) + unlit glow voxels (bloom)
-voxel/textures.ts         pixel floorboards, plaster, rug, and the pixel-art skyline
-characters/outfits.ts     wardrobe slots: Emile + three sub-agents (sleep, coach, chef)
-characters/buildCharacter oversized hoodie, joggers, sneakers, headphones, beanie, face
-characters/VoxelCharacter rig + idle loops (sleep, type, squat, stretch, cycle, walk, prep)  ← GLB hook here
-models/furniture.ts       bed, nightstand, desk + ultrawide + keyboard + laptop, chair, yoga mat, dumbbell rack,
-                          bike, marble island, stools, back kitchen with gold LEDs, pendants, sofa, lamp, plants
-zones/*.tsx               layout + lights + agent per zone (Kitchen.tsx has the walk loop / pathfinding hook)
+store.ts                  zone + camera phase (overview → flying → focused → returning), quality
+zones.ts                  the 4 zones: anchors, camera poses, lens (fov), colours, keys, overview pose
+look/textures.ts          canvas textures: oak floor, plaster, fabric, marble, rugs, art prints, screens, book spines
+look/decor.tsx            palette, Block (rounded box), plants, lamps, candles, books, frames, vases, mugs
+look/furniture.tsx        bed, nightstands, bench, desk + monitor + laptop, office chair, gym kit, fluted island,
+                          stools, sage back kitchen, fridge, sofa, lounge chair, coffee table, record console,
+                          bookshelf, curtains
+characters/outfits.ts     wardrobe + hair: Emile and three helpers (sleep, coach, chef)
+characters/Character.tsx  smooth stylised character + idle loops (sleep, type, squat, stretch, cycle, walk, prep)  ← GLB hook here
+scene/Room.tsx            shell (floor, glass wall, curtains, plaster wall, city) + living room
+zones/*.tsx               layout + lights + character per zone (Kitchen.tsx has the walk loop / pathfinding hook)
 scene/CameraRig.tsx       eased Bézier camera flights, FOV dolly, panel-aware view offset, DOF focus point
-scene/Scene.tsx           canvas, lights, depth of field + bloom + grain + vignette, quality/pixel switches
+scene/Scene.tsx           canvas, lights, depth of field + bloom + grain + vignette, quality switch
 data/types.ts             payload contracts for the four panels
 data/server.ts            loaders (DB, job sheet) with labelled sample fallbacks
 data/hooks.ts             useSleepData / useProfessionalData / useFitnessData / useNutritionData
 overlays/panels.tsx       frosted glass panels
 ```
 
-Controls: drag to orbit, scroll to zoom, click a room or press 1–4, Esc to zoom out. `?quality=low|high`, `?pixel=0`.
+Controls: drag to orbit, scroll to zoom, click a room or press 1–4, Esc to zoom out. `?quality=low|high`.
 
 ## Feeding it real data
 

@@ -1,5 +1,5 @@
 /**
- * Wardrobe for the voxel characters. Every colour is a slot, so a new sub-agent
+ * Wardrobe for the characters. Every colour is a slot, so a new sub-agent
  * is just a new entry here. All of them wear the same cut: oversized hoodie,
  * loose joggers with ribbed cuffs, chunky sneakers.
  */
@@ -18,6 +18,7 @@ export type Outfit = {
   headphones?: string | null; // worn around the neck
   headphonesGlow?: string | null;
   beanie?: string | null;
+  hairStyle?: "textured" | "curly" | "bun" | "buzz";
 };
 
 export const OUTFITS = {
@@ -37,6 +38,7 @@ export const OUTFITS = {
     headphones: "#17171c",
     headphonesGlow: "#3ee0ff",
     beanie: null,
+    hairStyle: "textured",
   },
   /** Sub-agent: recovery. Lavender hoodie, cream joggers. */
   sleep: {
@@ -53,6 +55,7 @@ export const OUTFITS = {
     shoeAccent: "#9384c2",
     headphones: null,
     beanie: null,
+    hairStyle: "bun",
   },
   /** Sub-agent: coach. Black hoodie with orange accents, grey joggers. */
   coach: {
@@ -69,6 +72,7 @@ export const OUTFITS = {
     shoeAccent: "#ff8a3d",
     headphones: null,
     beanie: null,
+    hairStyle: "curly",
   },
   /** Sub-agent: nutrition. Sage hoodie, cream joggers, rust beanie. */
   chef: {
@@ -85,6 +89,7 @@ export const OUTFITS = {
     shoeAccent: "#c96f4a",
     headphones: null,
     beanie: "#c2683f",
+    hairStyle: "buzz",
   },
 } satisfies Record<string, Outfit>;
 

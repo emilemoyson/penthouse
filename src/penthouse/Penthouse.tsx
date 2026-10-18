@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { X, LayoutGrid, Grid2x2 } from "lucide-react";
+import { X, LayoutGrid } from "lucide-react";
 import { useZone, type ZoneId } from "./store";
 import { ZONES, zoneById } from "./zones";
 import type { PenthouseData } from "./data/types";
@@ -15,7 +15,7 @@ const Scene = dynamic(() => import("./scene/Scene"), { ssr: false, loading: () =
 
 export function Penthouse({ data }: { data: PenthouseData }) {
   return (
-    <div className="dark-room fixed inset-0 overflow-hidden bg-[#05050a] text-white">
+    <div className="dark-room fixed inset-0 overflow-hidden bg-[#0b0908] text-white">
       <div className="absolute inset-0">
         <Scene />
       </div>
@@ -79,8 +79,7 @@ function Hud() {
         </div>
       </div>
 
-      {/* top-right: pixel filter + classic pages */}
-      <PixelToggle free={free} />
+      {/* top-right: classic pages */}
       <a
         href="/training"
         className={clsx(
@@ -217,20 +216,3 @@ function ZoneLabels() {
   );
 }
 
-function PixelToggle({ free }: { free: boolean }) {
-  const pixel = useZone((s) => s.pixel);
-  const setPixel = useZone((s) => s.setPixel);
-  return (
-    <button
-      onClick={() => setPixel(!pixel)}
-      title="Pixel filter"
-      className={clsx(
-        "absolute right-[156px] top-6 hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium backdrop-blur-md transition sm:inline-flex",
-        pixel ? "border-white/25 bg-white/[0.14] text-white" : "border-white/10 bg-white/[0.06] text-white/60 hover:text-white",
-        free ? "opacity-100" : "pointer-events-none opacity-0",
-      )}
-    >
-      <Grid2x2 size={13} /> Pixel {pixel ? "on" : "off"}
-    </button>
-  );
-}

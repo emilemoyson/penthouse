@@ -6,7 +6,7 @@ import { useZone } from "../store";
 
 /**
  * A warm, local point light. On high quality it can cast soft PCF shadows (small maps,
- * blurred with `radius`) so voxels throw those chunky, cosy shadows.
+ * blurred with `radius`) for soft, cosy pools of light.
  */
 export function GlowLight({
   position,

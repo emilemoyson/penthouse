@@ -17,11 +17,11 @@ import { Gym } from "../zones/Gym";
 import { Kitchen } from "../zones/Kitchen";
 import { useZone } from "../store";
 
-export const BG = "#05050a";
+export const BG = "#0b0908";
 
 /**
- * Lens stack: bloom for the neon/LED voxels, a depth-of-field that keeps whatever the camera
- * is looking at sharp (so the pixel skyline melts into bokeh), then grain + vignette.
+ * Lens stack: soft bloom for lamps and screens, a depth-of-field that keeps whatever the camera
+ * is looking at sharp (so the city melts into bokeh), then grain + vignette.
  */
 function Lens() {
   const dof = useRef<DepthOfFieldEffect>(null);
@@ -31,50 +31,45 @@ function Lens() {
   return (
     <EffectComposer multisampling={0}>
       <DepthOfField ref={dof} target={[0, 0, 0]} worldFocusRange={14} bokehScale={3} resolutionScale={0.5} />
-      <Bloom mipmapBlur luminanceThreshold={0.9} luminanceSmoothing={0.2} intensity={1.05} radius={0.72} />
-      <Noise opacity={0.04} premultiply />
-      <Vignette offset={0.22} darkness={0.82} />
+      <Bloom mipmapBlur luminanceThreshold={0.85} luminanceSmoothing={0.25} intensity={0.75} radius={0.7} />
+      <Noise opacity={0.03} premultiply />
+      <Vignette offset={0.25} darkness={0.7} />
     </EffectComposer>
   );
 }
 
 export default function Scene() {
   const quality = useZone((s) => s.quality);
-  const pixel = useZone((s) => s.pixel);
   const setQuality = useZone((s) => s.setQuality);
   const high = quality === "high";
 
-  // phones, ?quality=low|high and ?pixel=0|1 (handy for testing)
+  // phones, and ?quality=low|high (handy for testing)
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const qq = q.get("quality");
     if (qq === "low" || qq === "high") setQuality(qq);
     else if (window.matchMedia("(max-width: 640px)").matches) setQuality("low");
-    if (q.get("pixel") === "0") useZone.getState().setPixel(false);
   }, [setQuality]);
 
   return (
     <Canvas
       shadows={high ? "percentage" : false}
-      // Pixel mode renders at half resolution and lets the browser upscale with nearest-neighbour:
-      // crisp chunky pixels, and ~4× fewer fragments to shade.
-      dpr={pixel ? 0.5 : high ? [1, 1.75] : 1}
-      style={{ imageRendering: pixel ? "pixelated" : "auto" }}
+      dpr={high ? [1, 1.75] : 1}
       camera={{ position: OVERVIEW.position, fov: 36, near: 0.1, far: 160 }}
-      gl={{ antialias: !pixel, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2, powerPreference: "high-performance" }}
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15, powerPreference: "high-performance" }}
       onPointerMissed={() => useZone.getState().phase === "overview" && useZone.getState().hover(null)}
     >
       <color attach="background" args={[BG]} />
       <fog attach="fog" args={[BG, 32, 80]} />
 
-      {/* ---------- no bright global light: a whisper of ambient, the rest is local ---------- */}
-      <ambientLight intensity={high ? 0.1 : 0.16} color="#5c5aa0" />
-      <hemisphereLight args={["#3a3570", "#0a0a12", high ? 0.22 : 0.38]} />
+      {/* ---------- no bright global light: a warm whisper of ambient, the rest is lamps ---------- */}
+      <ambientLight intensity={high ? 0.12 : 0.2} color="#ffd8b0" />
+      <hemisphereLight args={["#8a7aa8", "#2a1c14", high ? 0.25 : 0.4]} />
       {/* faint moonlight through the glass (casts the mullion shadows on high) */}
       <directionalLight
         position={[-6, 10, -16]}
-        intensity={0.35}
-        color="#8fa6ff"
+        intensity={0.3}
+        color="#9fb2ff"
         castShadow={high}
         shadow-mapSize={[1024, 1024]}
         shadow-camera-left={-11}
@@ -84,7 +79,7 @@ export default function Scene() {
         shadow-bias={-0.0005}
       />
       {/* camera-side fill so silhouettes never go fully black */}
-      <pointLight position={[2, 5, 9]} intensity={high ? 2.6 : 4} color="#4a3f7a" distance={18} decay={2} />
+      <pointLight position={[2, 5, 9]} intensity={high ? 3 : 4.5} color="#7a5a48" distance={18} decay={2} />
 
       <PerformanceMonitor onDecline={() => setQuality("low")} />
       <Suspense fallback={null}>

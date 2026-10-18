@@ -38,12 +38,13 @@ export function overviewPose(aspect: number) {
     const [px, py, pz] = OVERVIEW.position;
     return { position: [tx + (px - tx) * k, ty + (py - ty) * k, tz + (pz - tz) * k] as V3, target: OVERVIEW.target, k };
   }
-  const dist = Math.min(40, 22.5 / Math.max(aspect, 0.45));
+  const dist = Math.min(46, 23.5 / Math.max(aspect, 0.45));
   const az = 1.22; // radians from +Z toward +X
   const el = 0.72; // elevation
+  const pt: V3 = [tx + 0.3, ty, tz - 0.4]; // nudge so the office corner stays on screen
   return {
-    position: [tx + dist * Math.sin(az) * Math.cos(el), ty + dist * Math.sin(el), tz + dist * Math.cos(az) * Math.cos(el)] as V3,
-    target: OVERVIEW.target,
+    position: [pt[0] + dist * Math.sin(az) * Math.cos(el), pt[1] + dist * Math.sin(el), pt[2] + dist * Math.cos(az) * Math.cos(el)] as V3,
+    target: pt,
     k: dist / 24,
   };
 }
@@ -56,8 +57,8 @@ export const ZONES: ZoneDef[] = [
     title: "Sleep & Recovery",
     subtitle: "Last night, REM and today's energy",
     key: "1",
-    anchor: [-7.2, 0, -3.4],
-    camera: { position: [-3.7, 2.9, 0.5], target: [-7.3, 0.55, -3.5] },
+    anchor: [-7.4, 0, -3.4],
+    camera: { position: [-2.3, 3.4, 0.6], target: [-7.4, 0.55, -3.5] },
     fov: 34,
     color: "#f2a53a",
     href: "/habits",
@@ -69,22 +70,22 @@ export const ZONES: ZoneDef[] = [
     title: "Professional Hub",
     subtitle: "Job search, inbox and calendar",
     key: "2",
-    anchor: [4.6, 0, -4.4],
-    // swoops over the right shoulder straight onto the laptop screen
-    camera: { position: [5.55, 2.05, -2.15], target: [4.95, 1.0, -4.65] },
-    fov: 38,
+    anchor: [4.6, 0, -5.0],
+    // swoops over the right shoulder onto the desk
+    camera: { position: [6.2, 2.55, -1.75], target: [4.75, 0.85, -5.3] },
+    fov: 40,
     color: "#4b93ec",
     href: "/jobs",
   },
   {
     id: "gym",
-    labelY: 2.9,
+    labelY: 2.4,
     label: "Gym",
     title: "Fitness Analytics",
     subtitle: "Frequency, lifts and streaks",
     key: "3",
-    anchor: [-6.2, 0, 3.1],
-    camera: { position: [-1.5, 3.0, 7.7], target: [-6.0, 0.9, 3.0] },
+    anchor: [-6.6, 0, 3.2],
+    camera: { position: [-1.0, 3.4, 8.9], target: [-6.8, 0.85, 3.1] },
     fov: 34,
     color: "#9085e9",
     href: "/training",
@@ -96,8 +97,8 @@ export const ZONES: ZoneDef[] = [
     title: "Diet & Nutrition",
     subtitle: "Calories, macros and meals",
     key: "4",
-    anchor: [5.6, 0, 2.4],
-    camera: { position: [8.4, 1.85, 5.9], target: [5.0, 1.05, 2.3] },
+    anchor: [5.4, 0, 2.5],
+    camera: { position: [1.4, 3.3, 8.2], target: [5.9, 0.95, 2.3] },
     fov: 34,
     color: "#23b58a",
     href: "/habits",

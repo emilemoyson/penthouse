@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Zone, useGlow } from "../scene/Zone";
-import { VoxelModel } from "../voxel/VoxelModel";
-import { VoxelCharacter, type Action } from "../characters/VoxelCharacter";
+import { Character, type Action } from "../characters/Character";
 import { GlowLight } from "../scene/lights";
-import { bike, dumbbellRack, gymSmalls, yogaMat } from "../models/furniture";
+import { Bike, DumbbellRack, FlatBench, Kettlebell, LeaningMirror, YogaMat } from "../look/furniture";
+import { C, Plant } from "../look/decor";
 
-/** 🏋️ Gym corner: yoga mat, dumbbell rack, indoor bike. Coach agent loops squats and stretches. */
+/** 🏋️ Home gym corner: rubber floor, dumbbell rack, bench, bike, leaning mirror. Coach agent loops squats and stretches. */
 export function Gym() {
-  const glow = useGlow("gym", 1.3);
+  const glow = useGlow("gym", 1);
   const [action, setAction] = useState<Action>("squat");
   useEffect(() => {
     const id = setInterval(() => setAction((a) => (a === "squat" ? "stretch" : "squat")), 9000);
@@ -17,25 +17,35 @@ export function Gym() {
   }, []);
 
   return (
-    <Zone id="gym" hitbox={{ size: [4.2, 2.4, 3.4], position: [-6.4, 1.2, 3.1] }}>
-      <VoxelModel data={yogaMat()} position={[-4.6, 0.005, 3.3]} />
-      <VoxelModel data={dumbbellRack()} position={[-8.45, 0, 2.7]} />
-      <VoxelModel data={bike()} position={[-6.7, 0, 4.4]} rotation={[0, Math.PI / 2, 0]} glow={glow} />
-      <VoxelModel data={gymSmalls()} position={[-6.6, 0, 1.75]} />
-
-      {/* neon ring on the wall */}
-      <mesh position={[-8.97, 2.45, 2.7]} rotation-y={Math.PI / 2}>
-        <torusGeometry args={[0.5, 0.03, 6, 48]} />
-        <meshBasicMaterial color="#a48cff" toneMapped={false} />
+    <Zone id="gym" hitbox={{ size: [4.4, 2.4, 3.6], position: [-6.6, 1.2, 3.2] }}>
+      {/* rubber gym floor */}
+      <mesh rotation-x={-Math.PI / 2} position={[-6.7, 0.006, 3.2]} receiveShadow>
+        <planeGeometry args={[4.4, 3.4]} />
+        <meshStandardMaterial color="#25221f" roughness={0.95} />
       </mesh>
+      <YogaMat position={[-5.2, 0.01, 3.4]} />
+      <DumbbellRack position={[-8.55, 0, 2.3]} />
+      <FlatBench position={[-7.1, 0, 2.6]} />
+      <Bike position={[-7.3, 0, 4.4]} rotation-y={Math.PI / 2 + 0.3} />
+      <Kettlebell position={[-6.3, 0, 1.75]} />
+      <Kettlebell position={[-6.05, 0, 1.8]} s={0.8} color={C.terracotta} />
+      <LeaningMirror position={[-8.9, 0, 4.2]} />
+      <Plant kind="snake" position={[-8.5, 0, 1.1]} scale={1.2} seed={14} pot={C.cream} />
 
-      {/* ===== IDLE: sub-agent "coach" training =====
-          HOOK: Mixamo "Air Squat" / "Stretching" clips map straight onto these actions */}
-      <VoxelCharacter action={action} outfit="coach" position={[-4.6, 0.02, 3.2]} rotation={[0, 0.6, 0]} />
+      {/* warm wall washer */}
+      <mesh position={[-9.06, 2.62, 3.0]} rotation-y={Math.PI / 2}>
+        <boxGeometry args={[2.6, 0.05, 0.07]} />
+        <meshStandardMaterial color={C.brass} metalness={0.7} roughness={0.35} />
+      </mesh>
+      <mesh position={[-9.04, 2.595, 3.0]} rotation-y={Math.PI / 2}>
+        <boxGeometry args={[2.5, 0.012, 0.03]} />
+        <meshBasicMaterial color="#ffcf96" toneMapped={false} />
+      </mesh>
+      <GlowLight position={[-8.4, 2.5, 3.0]} color="#ffbf80" intensity={5 * glow} distance={6} />
+      <GlowLight position={[-5.6, 2.8, 3.6]} color="#ffd2a0" intensity={4 * glow} distance={6} shadow />
 
-      <GlowLight position={[-8.3, 2.4, 2.7]} color="#8a6bff" intensity={4.8 * glow} distance={6} />
-      <GlowLight position={[-3.6, 2.2, 4.6]} color="#c9b8ff" intensity={3 * glow} distance={4} />
-      <GlowLight position={[-5.2, 3.1, 3.4]} color="#9b84ff" intensity={8.4 * glow} distance={7} shadow />
+      {/* ===== IDLE: sub-agent "coach" training ===== */}
+      <Character action={action} outfit="coach" position={[-5.2, 0.015, 3.3]} rotation={[0, 0.6, 0]} />
     </Zone>
   );
 }
