@@ -63,6 +63,60 @@ export function itemMacros(item: ItemLike, amount: number) {
   return { kcal: item.kcal_per * k, protein: item.protein_per * k, carbs: item.carbs_per * k, fat: item.fat_per * k };
 }
 
+/** portions: "made 4, ate 1". weight: weigh the finished dish, then how many grams were eaten. */
+export type CookSplit = { by: "portions"; made: number; ate: number } | { by: "weight"; cooked: number; ate: number };
+/** Something not from the fridge (oil, salt, a spice), with its macros for the amount used. */
+export type CookExtra = { name: string; kcal: number; protein: number; carbs: number; fat: number };
+type Macros = { kcal: number; protein: number; carbs: number; fat: number };
+
+/**
+ * What a cook does, without saving: amounts taken (never more than is left), totals for the dish,
+ * the eaten share, and the leftovers item (per portion, or per 100 g of the cooked dish).
+ * cookMeal saves exactly this, and the kitchen chat shows it before saving.
+ */
+export function previewCook(
+  items: (ItemLike & { id: number; qty: number })[],
+  c: { uses: { itemId: number; amount: number }[]; split: CookSplit; extras?: CookExtra[] },
+) {
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const tot = { kcal: 0, protein: 0, carbs: 0, fat: 0, cost: 0 };
+  const uses = c.uses.flatMap((u) => {
+    const it = byId.get(u.itemId);
+    if (!it) return [];
+    const amount = Math.max(0, Math.min(u.amount, it.qty));
+    const m = itemMacros(it, amount);
+    tot.kcal += m.kcal;
+    tot.protein += m.protein;
+    tot.carbs += m.carbs;
+    tot.fat += m.fat;
+    tot.cost += itemCost(it, amount);
+    return amount > 0 ? [{ itemId: it.id, amount, left: it.qty - amount, short: u.amount > it.qty + 0.0001 }] : [];
+  });
+  for (const x of c.extras ?? []) {
+    tot.kcal += x.kcal;
+    tot.protein += x.protein;
+    tot.carbs += x.carbs;
+    tot.fat += x.fat;
+  }
+  const sp = c.split;
+  const total = sp.by === "portions" ? sp.made : sp.cooked;
+  const share = total > 0 ? Math.min(1, sp.ate / total) : 0; // share of the dish eaten now
+  const left = Math.max(0, total - sp.ate);
+  const scale = (k: number): Macros => ({ kcal: tot.kcal * k, protein: tot.protein * k, carbs: tot.carbs * k, fat: tot.fat * k });
+  // leftovers are per portion, or per 100 g of the cooked dish
+  const base = sp.by === "portions" ? sp.made : sp.cooked / 100;
+  return {
+    uses,
+    share,
+    total: tot,
+    eaten: { ...scale(share), cost: tot.cost * share },
+    leftovers:
+      left > 0.0001
+        ? { qty: left, unit: sp.by === "portions" ? ("serving" as const) : ("g" as const), cost: tot.cost * (1 - share), per: scale(1 / base) }
+        : null,
+  };
+}
+
 /** Default shelf life when no use-by date is set, counted from the day it was bought. */
 const SHELF_DAYS: Record<string, number> = { fridge: 5, freezer: 90, pantry: 180 };
 

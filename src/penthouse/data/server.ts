@@ -4,7 +4,7 @@
  *
  * Where live data comes from:
  *   sleep        → sleep_logs table   ← POST /api/ingest/sleep   (Garmin/garth script, Oura, WHOOP, Apple Health export)
- *   professional → Google Sheet (jobs) + email_summaries ← POST /api/ingest/emails + events table (calendar)
+ *   professional → Google Sheet (jobs) + email_summaries ← POST /api/ingest/emails + Google Calendar (iCal feed)
  *   fitness      → workouts / sets / runs tables (Training tab, later Strava)
  *   nutrition    → meals, pantry_items, grocery_runs ← kitchen panel or POST /api/ingest/{meals,groceries}
  */
@@ -16,7 +16,8 @@ import { loadJobs, jobAnalytics } from "@/lib/jobs";
 import { sampleEmails, sampleKcalWeek, sampleMeals, samplePantry, sampleSleep, sampleSpend } from "./samples";
 import { daysLeft, USE_SOON_DAYS } from "@/lib/kitchen";
 import { receiptEnabled } from "@/lib/receipt";
-import type { CalendarItem, FitnessData, Meal, NutritionData, PantryItem, PenthouseData, ProfessionalData, SleepData, SleepNight } from "./types";
+import { loadGoogleEvents } from "@/lib/gcal";
+import type { FitnessData, Meal, NutritionData, PantryItem, PenthouseData, ProfessionalData, SleepData, SleepNight } from "./types";
 
 const now = () => new Date().toISOString();
 
@@ -124,20 +125,10 @@ export async function getProfessionalData(today = todayISO()): Promise<Professio
       }
     : { source: "sample", items: sampleEmails(today) };
 
-  // Calendar: events table (Ledger + school events). HOOK: merge Google Calendar here (calendar.events.list, timeMin=now).
+  // Calendar: Google Calendar via its secret iCal address (GOOGLE_CALENDAR_ICS_URL). The hourly email task adds to it.
   const weekStart = mondayOf(today);
-  const ev = sql
-    ? await sql<{ date: string; title: string; kind: string; note: string; time: string | null; location: string }[]>`
-        select date, title, kind, note, time, location from events where date >= ${weekStart} and date <= ${addDays(weekStart, 34)} order by date, id limit 200`.catch(() => [])
-    : [];
-  const calendar: ProfessionalData["calendar"] = {
-    source: sql ? "live" : "sample",
-    weekStart,
-    items: ev.map<CalendarItem>((e) => {
-      const m = e.note?.match(/\b(\d{1,2}(:\d{2})?\s?(am|pm|AM|PM))/);
-      return { date: e.date, time: e.time || (m ? m[1] : null), title: e.title, kind: e.kind, location: e.location || undefined };
-    }),
-  };
+  const gcal = await loadGoogleEvents(weekStart, addDays(weekStart, 34));
+  const calendar: ProfessionalData["calendar"] = { source: gcal ? "live" : "sample", weekStart, items: gcal ?? [] };
 
   // To-dos pulled out of emails by the morning inbox job (POST /api/ingest/todos)
   const td = sql
@@ -279,7 +270,7 @@ export async function getNutritionData(today = todayISO()): Promise<NutritionDat
     sql<(Omit<Meal, "kind"> & { kind: string; source: string })[]>`
       select id, date, time, name, kcal, protein, carbs, fat, cost, kind, source from meals where date >= ${from} order by date, time, id`,
     sql<Omit<PantryItem, "daysLeft">[]>`
-      select id, name, place, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per, bought, use_by
+      select id, name, place, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per, bought, use_by, size_guessed
       from pantry_items where finished_at is null order by name`,
     sql<{ date: string; total: number }[]>`select date, total from grocery_runs where date >= ${from}`,
   ]);

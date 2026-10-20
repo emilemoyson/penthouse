@@ -1,83 +1,59 @@
 # Emile's Hub
 
-Private personal dashboard. Home page is a 3D cosy apartment at night (React Three Fiber) with four clickable rooms that open glass panels with live data. Classic tabs (Training, Kitchen, Jobs, Habits) live under `src/app/(app)`.
+Private personal dashboard. Home page is a 3D apartment at night (React Three Fiber) with four rooms that open glass panels with live data. Classic pages (Training, Kitchen, Jobs, Habits) live under `src/app/(app)`.
+
+Where things stand and what's next: `docs/STATUS.md`. Update it when a topic is finished, then start the next topic in a fresh session (`/clear`).
 
 ## Stack
 
 - Next.js 15 App Router, React 19, TypeScript, Tailwind v4 (custom classes in `@layer components` in `globals.css`)
-- Postgres via the `postgres` package (Neon in production). Schema is created on first query in `src/lib/db.ts` and re-run when `SCHEMA.length` changes. Seed data imports once (kv key `seeded`).
-- R3F v9, drei v10, @react-three/postprocessing v3, zustand
-- Auth: single password. `src/middleware.ts` checks an HMAC cookie `hub_session` (secret is `"hub:" + APP_PASSWORD`).
-- Hosting plan: Vercel (free) + Neon (free). Code is on GitHub (private): github.com/emilemoyson/penthouse. Not deployed on Vercel yet.
+- Postgres via `postgres` (Neon in production). Schema lives in `src/lib/db.ts`, is created on first query and re-runs when `SCHEMA.length` changes.
+- R3F v9, drei v10, zustand, recharts v3, zod v4, `@anthropic-ai/sdk`
+- Auth: one password. `src/middleware.ts` checks the HMAC cookie `hub_session` (secret `"hub:" + APP_PASSWORD`).
+- Code: github.com/emilemoyson/penthouse (private). Hosting plan: Vercel + Neon, not deployed yet.
 
-## Run locally
+## Map
+
+| Path | What |
+| --- | --- |
+| `src/penthouse/` | 3D home: scene, rooms, characters, glass panels (own CLAUDE.md) |
+| `src/penthouse/data/` | Panel data: `types.ts`, `server.ts` (reads), `actions.ts` (writes), `samples.ts` (own CLAUDE.md) |
+| `src/app/(app)/` | Classic pages; `src/app/api/ingest/[kind]` takes data from Shortcuts and scripts |
+| `src/lib/` | db, auth, parsers, kitchen math, receipt reading |
+| `scripts/` | Python syncs for Lidl Plus and MyFitnessPal, launchd jobs (own CLAUDE.md) |
+| `apps-script/JobsFeed.gs` | Google Sheet feed for the Jobs tab |
+| `automation/calendar-agent.md` | Prompt for the hourly email task: Gmail + Outlook → Google Calendar, and to-dos read from every email |
+| `automation/morning-inbox.md` | Prompt for the morning Gmail summaries task |
+| `src/lib/gcal.ts` | Reads Google Calendar (secret iCal URL) for the calendar panel and Habits page |
+
+## Run and check
 
 ```bash
-npm install
-cp .env.example .env.local   # fill APP_PASSWORD and DATABASE_URL at minimum
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3000, needs .env.local
+npx tsc --noEmit             # before every commit
+npm run build                # before every commit
 ```
 
-For a local database: `brew install postgresql@16 && brew services start postgresql@16 && createdb hub`, then `DATABASE_URL=postgres://localhost/hub`. On Emile's Mac the Homebrew Postgres runs on port 5433 (an EDB PostgreSQL 18 owns 5432), so it's `postgres://localhost:5433/hub`.
-
-Check before committing: `npx tsc --noEmit` and `npm run build`.
+Local Postgres is Homebrew on port 5433 (`postgres://localhost:5433/hub`); an EDB Postgres owns 5432. Test risky changes on a copy: `createdb -p 5433 -T hub hub_test`, then `DATABASE_URL=postgres://localhost:5433/hub_test npx next dev -p 3001`, and `dropdb -p 5433 hub_test` after.
 
 ## Env vars
 
-| Var | What |
-| --- | --- |
-| `APP_PASSWORD` | login password |
-| `DATABASE_URL` | Postgres |
-| `JOBS_SHEET_URL`, `JOBS_SHEET_TOKEN` | Apps Script web app over the "Job Search 2027" Google Sheet (`apps-script/JobsFeed.gs`) |
-| `INGEST_TOKEN` | Bearer token for `POST /api/ingest/:kind` |
-| `ANTHROPIC_API_KEY` | Claude API: reads receipt photos and typed grocery lists, estimates macros (`src/lib/receipt.ts`). Optional |
+`APP_PASSWORD`, `DATABASE_URL`, `JOBS_SHEET_URL`, `JOBS_SHEET_TOKEN`, `INGEST_TOKEN` (bearer for `/api/ingest/:kind`), `ANTHROPIC_API_KEY` (optional, receipts and macro estimates), `GOOGLE_CALENDAR_ICS_URL` (secret iCal address, the only calendar source; the old `events` table is no longer read). All in `.env.local`; the Python scripts use `scripts/.env`.
 
-Never commit `.env.local`.
+## Rules
 
-## The 3D home (`src/penthouse`)
-
-- `Penthouse.tsx`: page shell (clock, dock, labels, panel). `store.ts`: zone, camera phase, quality.
-- `zones.ts`: anchor, label height, camera pose and fov per room, plus `overviewPose(aspect)` (portrait has its own pose).
-- `scene/Scene.tsx`: canvas, lights, post effects. `scene/Room.tsx`: shell and living room. `scene/CameraRig.tsx`: wall-clock eased Bézier flights, FOV dolly, view offset so the subject sits beside the panel.
-- `zones/{Bed,Desk,Gym,Kitchen}.tsx`: furniture layout, lights and the character for each room.
-- `look/`: everything visual is procedural. `textures.ts` (canvas textures, cached), `decor.tsx` (palette `C`, `Block`, plants, lamps, small objects), `furniture.tsx`.
-- `characters/Character.tsx`: stylised character with idle loops; `outfits.ts` holds clothes and hair. Swap in a GLB later at the marked hook, keeping the same props.
-- Room layout (metres, y up): floor 18 x 12 centred on origin, glass wall at z = -6, plaster wall at x = -9. Bedroom back-left, office back-right, gym front-left, kitchen front-right, living room centre.
-- Labels are plain DOM elements projected each frame (`LabelProjector`), not drei `Html`.
-- Quality: `?quality=low|high`. Low turns off shadows, reflections and the lens stack. Phones start on low; `PerformanceMonitor` drops to low on slow devices.
-
-## Data
-
-- `src/penthouse/data/server.ts` loads each panel (DB + jobs sheet) with labelled sample fallbacks; `hooks.ts` refreshes via `GET /api/penthouse/:zone` (sleep, professional, fitness, nutrition).
-- `POST /api/ingest/:kind` (sleep, meals, groceries, emails, events, todos, workout-text) with `Authorization: Bearer $INGEST_TOKEN`. Validated with zod, idempotent upserts. Examples in README.
-- Gym notes: `src/lib/parse-workout.ts` reads the `docs/gym-template.md` format. Shortcut imports are `workouts.source = 'shortcut'` and are replaced per (date, kind) on re-send.
-- Kitchen: shop → fridge → cook → meal. `grocery_runs` and `pantry_items` (amounts in g, ml, item or serving; macros per 100 g/ml or per item/serving; `price` is for `qty_start`). Shared math in `src/lib/kitchen.ts` (client-safe). `src/lib/groceries.ts` saves a shop and fills missing macros: Open Food Facts by barcode first (only when the package size is known), then one Claude call. `cookMeal` in `src/penthouse/data/actions.ts` takes a split: portions (made N, ate M) or weight (cooked dish g, ate g). The eaten share becomes a meal; the rest a leftovers item (unit serving, or g with macros per 100 g of the cooked dish) in the fridge (4 days) or freezer (90). Every cook is a `cooks` row with `cook_uses`; `meals.cook_id` links back. `deleteMeal` undoes the cook (ingredients back, leftovers removed) only while the leftovers are untouched, otherwise it just deletes the meal row. `eatItem` (any amount) goes through `cookMeal` too. Meals logged before 2026-10-20 have no cook row and can't be undone. `meals.cost` and `meals.kind` (home | out) drive the spending numbers. Panel UI is `src/penthouse/overlays/kitchen.tsx`; full page is `/kitchen`.
-- Receipts: `src/lib/receipt.ts` uses `claude-opus-5-5` with structured output (`betaZodOutputFormat`), effort low, server-side fallbacks on. The panel shrinks photos to about 1800px JPEG before the server action (`next.config.ts` allows 6 MB bodies).
-- Lidl Plus: `scripts/lidl_sync.py` in its own venv `scripts/.venv-lidl` (its dependencies clash with the myfitnesspal pins). Login is `scripts/lidl_login.py`: a visible Chrome window where Emile logs in by hand (Lidl's 2026 login page has a captcha, so the package's `lidl-plus auth` automation no longer works); it catches the `com.lidlplus.app://callback?code=` redirect and saves `LIDL_REFRESH_TOKEN`. selenium-wire needs `blinker==1.7.0` and `pyopenssl==24.2.1` (pinned in `scripts/requirements-lidl.txt`). Uses the unofficial `lidl-plus` package for the token and the receipt list, then fetches the v3 printed receipt (HTML) itself because the package's `ticket()` is broken since Lidl's 2024 API change. Works with Emile's US account (tested 2026-10-19). Send only `Authorization` and a 2-letter `Accept-Language: en`: the package's fake `App-Version: 999.99.9` headers make Akamai stall every request, and the v3 receipt call 400s on `en-US`. The receipt is cut before the payment block (card data never leaves the Mac), food lines are parsed locally (`F`/`FT` flag = food, `T` = non-food, discounts and `lb @` weights handled), and the run total is the food lines only. Sent as items with `extId = lidl:<id>`; the endpoint skips known ids before calling Claude. The refresh token is renewed and saved before fetching, in case Lidl rotates it.
-- MyFitnessPal: `scripts/mfp_sync.py` (Python venv in `scripts/.venv`, env in `scripts/.env`). Days with `source = 'mfp'` meals ignore manual rows in the kitchen panel.
-- The rise (`src/penthouse/rise.ts`): in a focused room, scrolling anywhere drives one 0 to 1 value. `CameraRig` eases it each frame and cranes the camera from the zone pose into the sky, `scene/NightSky.tsx` fades a star dome in, the panel fades out, and `overlays/Sheet.tsx` slides the room's page (`zones.ts` `href`) up in a same-origin iframe. Letting go part-way snaps to the nearer end; scrolling up at the top of the page, Esc or a click on the sky goes back down. In a frame, the root layout's script adds `html.embedded`, which hides `[data-app-nav]` and the page background (`globals.css`). Intercepting routes were tried and dropped: Next 15 throws "initialTree is not iterable" because the target pages live in the `(app)` group with their own layout.
-
-## Gotchas
-
-- Use `performance.now()` for animations that must finish (camera), not frame deltas; slow GPUs otherwise never arrive.
-- The camera tween must run to p = 1 even after `arrive()` flips the phase to "focused"; the rise only takes over once `tween.current` is null.
-- Canvas `ctx.filter` blur per shape is very slow; blur by downscaling and upscaling instead.
-- Floor slab top sits at y = -0.01 to avoid z-fighting with the floor plane.
-- Recharts v3 tooltip payload types are readonly; see the custom `TipProps`.
-- Server components can't pass functions to client components; pass a string (e.g. `format="pace"`).
+- Never commit, print or paste `.env.local` or `scripts/.env`. Check a key exists with `grep -c '^NAME=' file`, never by showing it. Hooks in `.claude/` enforce this.
+- Never ask for Emile's passwords (Lidl, Google). They log in themselves.
+- Card and payment data from receipts never leaves the Mac.
+- The Jobs sheet also runs Emile's "Job Watcher" Apps Script. Never replace or edit it; the dashboard feed is the separate `JobsFeed` file.
+- Commit only when asked; branch first if on main.
 
 ## Style
 
-The owner prefers plain, understated wording in UI copy and docs. No em dashes.
+Plain, understated wording in UI copy and docs. No em dashes. Use they/them for Emile.
 
-## Open items (next session starts here)
+## Gotchas
 
-Status on 2026-10-18: everything works locally (`npm run dev`, password in `.env.local`, Postgres on port 5433). The Jobs sheet feed is connected locally (`JOBS_SHEET_URL` / `JOBS_SHEET_TOKEN` in `.env.local`, Apps Script file `JobsFeed` lives next to Emile's Job Watcher script in the sheet; never replace that script).
-
-1. Deploy: Emile imports the GitHub repo on vercel.com, adds Neon (Storage), and sets env vars `APP_PASSWORD` (a new strong one), `INGEST_TOKEN`, `JOBS_SHEET_URL`, `JOBS_SHEET_TOKEN` (local values are in `.env.local`).
-2. After deploy: point `scripts/.env` `INGEST_URL` at the Vercel URL, install the MyFitnessPal launchd job (`scripts/com.emile.mfp-sync.plist`), and test with a breakfast of toast, eggs and avocado logged in the MyFitnessPal app (`scripts/mfp_sync.py --dry-run` first).
-3. Build the iPhone "Log workout" Shortcut (`docs/shortcuts.md`) and send a real note in the `docs/gym-template.md` format.
-4. Paste `automation/morning-inbox.md` (with the site URL and token) into the Claude Desktop morning task and run it once.
-5. Emile has more tweaks in mind for the scroll-into-the-sky full view (`src/penthouse/rise.ts`); ask what they are.
-6. Later: Strava / Garmin import for runs and sleep.
-7. Kitchen (built 2026-10-19): `ANTHROPIC_API_KEY` is in `.env.local` and works (also add it on Vercel). The first Lidl receipt (Oct 19, $32.69 of food) is imported. The Lidl sync runs at 9:00, 13:00, 17:00, 20:00 and 22:30 via `~/Library/LaunchAgents/com.emile.lidl-sync.plist` (log `~/Library/Logs/lidl-sync.log`); it only imports while the site is reachable at `scripts/.env` `INGEST_URL` (localhost until deploy) and looks back 14 days, so missed runs catch up. Still to test by hand: a receipt photo and a typed list in the panel.
+- Server components can't pass functions to client components; pass a string (e.g. `format="pace"`).
+- Recharts v3 tooltip payload types are readonly; see the custom `TipProps`.
+- Odd type errors about `* 2.ts` files: iCloud copies. Delete them and `.next`.

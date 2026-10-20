@@ -65,6 +65,11 @@ function Row({ p }: { p: PantryItem }) {
           />
           <span className="text-[12px] text-ink-3">{p.unit}</span>
           <span className="text-[12px] text-ink-3">of {fmtQty(p.qty_start, p.unit)}</span>
+          {p.size_guessed && (
+            <span className="text-[11.5px] text-warn" title="The receipt didn't show the package size. Check it in the kitchen panel or tell the kitchen chat.">
+              size guessed
+            </span>
+          )}
         </span>
       </td>
       <td className="py-1.5 text-right tnum">{money(itemCost(p, p.qty))}</td>

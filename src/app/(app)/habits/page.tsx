@@ -1,11 +1,11 @@
-import { ArrowUpRight, Check, Trash2, X } from "lucide-react";
+import { ArrowUpRight, Check, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { loadHabits, GUIDE, GUIDE_TOTAL, QLEVELS, QTOTAL, LC, COURSES, C_HOURS, CLAUDE, slug, type HabitsData } from "@/lib/habits";
 import { addDays, daysBetween, fDow, fLong, fShort, fMonth, fDay, lastNDays, mondayOf, relDay, todayISO } from "@/lib/dates";
 import { Badge, Card, Empty, PageHeader, Segmented, Stat, btn } from "@/components/ui";
 import { DailyColumns, TimeLine } from "@/components/charts";
 import { CheckIn, NumberSave, ActionButton } from "./client";
-import { addBook, addEvent, cycleBook, deleteBook, deleteEvent, setLeetcode, setQuestions, toggleCourse, toggleGuide } from "./actions";
+import { addBook, cycleBook, deleteBook, setLeetcode, setQuestions, toggleCourse, toggleGuide } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Habits" };
@@ -17,6 +17,7 @@ const VIEWS = [
   { id: "reading", label: "Reading" },
 ];
 const TARGET = { gym: 3, run: 2, read: 7 };
+const KIND_LABEL: Record<string, string> = { school: "IE NYC", meeting: "Meeting", deadline: "Deadline", personal: "Personal" };
 
 export default async function HabitsPage({ searchParams }: { searchParams: Promise<{ view?: string; date?: string }> }) {
   const sp = await searchParams;
@@ -75,7 +76,7 @@ function TodayView({ h, today, date }: { h: HabitsData; today: string; date: str
   const zBest = z30.length ? Math.max(...z30) : null;
   const cp = claudeProgress(h, today);
   const oq = Object.values(h.progress.questions.byLevel || {}).reduce((a, b) => a + Number(b || 0), 0);
-  const upcoming = h.events.filter((e) => e.date >= today).slice(0, 7);
+  const upcoming = h.events.slice(0, 7);
   const recent = h.logs
     .filter((l) => l.read_min || l.zetamac != null || l.gym || l.run || l.note)
     .slice(-12)
@@ -168,38 +169,29 @@ function TodayView({ h, today, date }: { h: HabitsData; today: string; date: str
           <Stat label="Claude courses" value={cp.done} unit="/ 10" progress={cp.done * 10} />
           <Stat label="OpenQuant" value={oq} unit={`/ ${QTOTAL}`} progress={(oq / QTOTAL) * 100} />
         </div>
-        <Card title="Up next" sub="School and personal dates." pad={false}>
+        <Card title="Up next" sub="From Google Calendar." pad={false}>
           <ul className="divide-y divide-line">
             {upcoming.map((e) => (
-              <li key={e.id} className="flex items-start gap-3 px-5 py-3 sm:px-6">
+              <li key={`${e.date}-${e.time}-${e.title}`} className="flex items-start gap-3 px-5 py-3 sm:px-6">
                 <div className="w-11 shrink-0 rounded-lg border border-line bg-surface-2 py-1 text-center leading-tight">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">{fMonth(e.date)}</div>
                   <div className="text-[17px] font-semibold tnum">{fDay(e.date)}</div>
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[13.5px] font-medium leading-snug">{e.title}</div>
-                  {e.note && <div className="mt-0.5 line-clamp-2 text-[12.5px] text-ink-3">{e.note}</div>}
+                  {(e.time || e.location) && <div className="mt-0.5 line-clamp-2 text-[12.5px] text-ink-3">{[e.time, e.location].filter(Boolean).join(" · ")}</div>}
                   <div className="mt-1.5 flex gap-1.5">
                     <Badge tone={daysBetween(today, e.date) <= 2 ? "warn" : "neutral"}>{relDay(e.date, today)}</Badge>
-                    <Badge>{e.kind === "school" ? "IE NYC" : "Personal"}</Badge>
+                    <Badge>{KIND_LABEL[e.kind] ?? "Personal"}</Badge>
                   </div>
                 </div>
-                <ActionButton action={deleteEvent.bind(null, e.id)} label={`Remove ${e.title}`} className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-ink">
-                  <X size={14} />
-                </ActionButton>
               </li>
             ))}
             {!upcoming.length && <li className="px-6 pb-4 text-[13.5px] text-ink-3">Nothing coming up.</li>}
           </ul>
-          <form action={addEvent} className="grid grid-cols-[1fr_auto] gap-2 border-t border-line px-5 py-4 sm:px-6">
-            <input name="title" placeholder="Add a date" className="field h-9 text-[13.5px]" required />
-            <input name="date" type="date" min={today} className="field h-9 w-[150px] text-[13.5px]" required />
-            <select name="kind" className="field h-9 text-[13.5px]" defaultValue="personal">
-              <option value="personal">Personal</option>
-              <option value="school">IE NYC</option>
-            </select>
-            <button className={btn.primary}>Add</button>
-          </form>
+          <a href="https://calendar.google.com" target="_blank" rel="noreferrer" className="flex items-center gap-1 border-t border-line px-5 py-3 text-[13px] text-ink-3 hover:text-ink sm:px-6">
+            Open Google Calendar <ArrowUpRight size={13} />
+          </a>
         </Card>
       </div>
     </div>

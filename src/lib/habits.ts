@@ -1,7 +1,8 @@
 import { db, getKV } from "./db";
+import { addDays, todayISO } from "./dates";
+import { loadGoogleEvents } from "./gcal";
 
 export type HabitLog = { date: string; read_min: number | null; zetamac: number | null; gym: boolean; run: boolean; note: string };
-export type EventRow = { id: number; date: string; title: string; note: string; kind: string };
 export type Book = { id: number; title: string; author: string; status: string };
 
 export const GUIDE = [
@@ -52,7 +53,7 @@ export async function loadHabits() {
   const sql = await db();
   const [logs, events, books, workoutDays, runDays, guide, questions, leetcode, datacamp] = await Promise.all([
     sql<HabitLog[]>`select date, read_min, zetamac, gym, run, note from habit_logs order by date`,
-    sql<EventRow[]>`select id, date, title, note, kind from events order by date`,
+    loadGoogleEvents(todayISO(), addDays(todayISO(), 60)),
     sql<Book[]>`select id, title, author, status from books order by created_at`,
     sql<{ date: string }[]>`select distinct date from workouts`,
     sql<{ date: string }[]>`select distinct date from runs`,
@@ -69,7 +70,7 @@ export async function loadHabits() {
   return {
     logs: [...logs],
     byDate,
-    events: [...events],
+    events: events ?? [], // Google Calendar, next 60 days
     books: [...books],
     gymDays,
     runSet,

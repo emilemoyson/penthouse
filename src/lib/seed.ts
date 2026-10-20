@@ -6,7 +6,7 @@ import { DEFAULT_EXERCISES } from "./exercises";
  *  - Workouts transcribed from Emile's gym notes (Push / Pull). The notes have no dates,
  *    so each line is treated as one session in order and given an estimated date
  *    (flagged in the UI so it can be corrected).
- *  - Daily logs, events and progress from the old Ledger page.
+ *  - Daily logs and progress from the old Ledger page. (Its events moved to Google Calendar.)
  */
 
 type SeedSet = { w: number; reps: number; alt?: number };
@@ -115,24 +115,6 @@ const LEDGER_LOGS = [
   { date: "2026-09-24", gym: true },
 ];
 
-const LEDGER_EVENTS = [
-  { date: "2026-09-26", title: "MongoDB hackathon", note: "", kind: "personal" },
-  { date: "2026-09-23", title: "Open AI lunch and learn", note: "", kind: "personal" },
-  { date: "2026-11-20", title: "AWS event - AI & Analytics Club (Classroom 4)", note: "Organized by the AI & Analytics Club. Confirmed for the morning of Nov 20; exact time still TBD.", kind: "school" },
-  { date: "2026-10-25", title: "Master in Claude: finish all 10 courses", note: "Chechu's target, so there's time left for the project and test prep.", kind: "school" },
-  { date: "2026-11-12", title: "Master in Claude: project deadline", note: "23:59 ET. Write-up, artifacts and a 3-5 min demo video. Submissions open Nov 1.", kind: "school" },
-  { date: "2026-11-09", title: "Master in Claude: final test window opens", note: "Runs Nov 9-15. About 60 min, one attempt, booked slot, ID verified.", kind: "school" },
-  { date: "2026-10-26", title: "SQL course: DriveWealth site visit (data team Q&A)", note: "4pm, max 1hr, 28 Liberty St (50th Fl), arrive by 3:40pm. Bring questions for the data team.", kind: "school" },
-  { date: "2026-10-22", title: "IENYC Tech Summit 2026: AI Reality Check (AI & Analytics Club)", note: "6:30-8:30 PM at IE NYC, 64 Wooster St. Panel with speakers from CVS Health, Microsoft, Suntory Global Spirits and PropellingTECH.", kind: "school" },
-  { date: "2026-10-29", title: "IENYC Lawn Games Social", note: "7-9 PM at Lawn Club (1 Fulton St, Seaport). Register on Luma, spots limited.", kind: "school" },
-  { date: "2026-10-30", title: "T&C BAAI Career Accelerator: Application Materials due", note: "Submit updated CV via 12twenty + Blackboard, plus LinkedIn profile link.", kind: "school" },
-  { date: "2026-10-09", title: "Movie Night: The AI Doc (AI & Analytics Club)", note: "6:30-8:30 PM, upstairs area.", kind: "school" },
-  { date: "2026-10-05", title: "Silicon Valley Immersion Program - application deadline", note: "Apply by creating a goal in MyGrowthPlan. Program runs Mar 29-Apr 2, 2027.", kind: "school" },
-  { date: "2026-10-02", title: "Google Office Visit - MBAAI Cohort", note: "10:00 AM-12:00 PM.", kind: "school" },
-  { date: "2026-09-30", title: "Guest Lecture: Paul Marcussen (NBIM)", note: "5:15-6:30 PM, Room 1.", kind: "school" },
-  { date: "2026-09-23", title: "OpenAI office visit (fireside chat)", note: "12:00 PM check-in, 295 Lafayette St 3rd Fl.", kind: "school" },
-];
-
 export async function seedDatabase(sql: any) {
   // Exercise library
   for (const e of DEFAULT_EXERCISES) {
@@ -161,12 +143,5 @@ export async function seedDatabase(sql: any) {
     await sql`insert into habit_logs (date, read_min, zetamac, gym, run, note)
               values (${r.date}, ${r.read ?? null}, ${r.zetamac ?? null}, ${!!r.gym}, false, '')
               on conflict (date) do nothing`;
-  }
-
-  const [{ e }] = await sql`select count(*)::int as e from events`;
-  if (e === 0) {
-    for (const ev of LEDGER_EVENTS) {
-      await sql`insert into events (date, title, note, kind) values (${ev.date}, ${ev.title}, ${ev.note}, ${ev.kind})`;
-    }
   }
 }

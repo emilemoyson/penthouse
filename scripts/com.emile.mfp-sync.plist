@@ -11,9 +11,9 @@
   <key>Label</key><string>com.emile.mfp-sync</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/emilemoyson/Documents/penthouse/scripts/.venv/bin/python</string>
+    <string>/Users/emilemoyson/code/penthouse/scripts/.venv/bin/python</string>
     <string>-W</string><string>ignore</string>
-    <string>/Users/emilemoyson/Documents/penthouse/scripts/mfp_sync.py</string>
+    <string>/Users/emilemoyson/code/penthouse/scripts/mfp_sync.py</string>
   </array>
   <key>StartCalendarInterval</key>
   <array>

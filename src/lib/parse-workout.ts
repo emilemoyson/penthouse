@@ -123,6 +123,8 @@ const LIBRARY = DEFAULT_EXERCISES.filter((e) => e.name !== "Dumbbell (unnamed)")
 
 /** Best match from the exercise library, or the name as written. */
 export function matchExercise(raw: string): { name: string; known: boolean } {
+  const exact = DEFAULT_EXERCISES.find((e) => e.name.toLowerCase() === raw.trim().toLowerCase());
+  if (exact) return { name: exact.name, known: true };
   const t = new Set(norm(raw));
   if (!t.size) return { name: raw.trim(), known: false };
   if (t.size === 1 && t.has("db")) return { name: "Dumbbell (unnamed)", known: true };

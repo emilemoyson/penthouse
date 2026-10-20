@@ -1,0 +1,58 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["splits", "ideas", "skipped"],
+  "properties": {
+    "splits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "sessionCount", "sessions"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["push", "pull", "legs", "upper", "lower", "full", "other"] },
+          "sessionCount": { "type": "integer", "minimum": 0 },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["n", "notes", "exercises"],
+              "properties": {
+                "n": { "type": "integer", "minimum": 1 },
+                "notes": { "type": "string" },
+                "exercises": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["name", "sets"],
+                    "properties": {
+                      "name": { "type": "string", "minLength": 1 },
+                      "sets": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["weight", "unit", "reps", "alt"],
+                          "properties": {
+                            "weight": { "type": "number", "minimum": 0 },
+                            "unit": { "type": "string", "enum": ["lb", "kg"] },
+                            "reps": { "type": "integer", "minimum": 0 },
+                            "alt": { "type": ["integer", "null"], "minimum": 0 }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ideas": { "type": "array", "items": { "type": "string" } },
+    "skipped": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -44,3 +44,7 @@ next-env.d.ts
 # MyFitnessPal sync venv
 scripts/.venv/
 scripts/.venv-lidl/
+
+# Claude Code: personal overrides and the tsc stamp
+.claude/settings.local.json
+.claude/.last-tsc

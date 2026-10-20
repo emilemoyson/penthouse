@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db, setKV } from "@/lib/db";
 import { addDays, todayISO } from "@/lib/dates";
-import { itemCost, itemMacros } from "@/lib/kitchen";
+import { normalizeQty, perBase, previewCook } from "@/lib/kitchen";
 import { GroceryItemIn, saveGroceryRun as saveRun, type GroceryRunIn } from "@/lib/groceries";
 import { readReceipt, type ReceiptInput } from "@/lib/receipt";
 import { getNutritionData, getProfessionalData } from "./server";
@@ -87,12 +87,17 @@ const CookIn = z
     name: z.string().trim().min(1).max(200),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     uses: z.array(z.object({ itemId: z.number().int().positive(), amount: z.coerce.number().positive() })).min(1).max(30),
-    /** portions: "made 4, ate 1". weight: weigh the finished dish, then how many grams were eaten. */
+    /** portions: "made 4, ate 1". weight: weigh the finished dish, then how many grams were eaten. See CookSplit. */
     split: z.discriminatedUnion("by", [
       z.object({ by: z.literal("portions"), made: z.coerce.number().min(0.5).max(50), ate: z.coerce.number().min(0).max(50) }),
       z.object({ by: z.literal("weight"), cooked: z.coerce.number().positive().max(50_000), ate: z.coerce.number().min(0).max(50_000) }),
     ]),
     keepIn: z.enum(["fridge", "freezer"]).default("fridge"),
+    /** not from the fridge (oil, salt): macros for the amount used, added to the dish */
+    extras: z
+      .array(z.object({ name: z.string().trim().min(1).max(100), kcal: z.coerce.number().min(0).max(5000), protein: z.coerce.number().min(0).max(500), carbs: z.coerce.number().min(0).max(500), fat: z.coerce.number().min(0).max(500) }))
+      .max(20)
+      .default([]),
   })
   .refine((c) => (c.split.by === "portions" ? c.split.ate <= c.split.made : c.split.ate <= c.split.cooked), { message: "Ate more than was made" });
 export type CookInput = z.input<typeof CookIn>;
@@ -108,51 +113,32 @@ export async function cookMeal(input: CookInput) {
   const ids = c.uses.map((u) => u.itemId);
   const items = await sql<{ id: number; qty: number; qty_start: number; unit: string; price: number; kcal_per: number; protein_per: number; carbs_per: number; fat_per: number }[]>`
     select id, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per from pantry_items where id in ${sql(ids)} and finished_at is null`;
-  const byId = new Map(items.map((i) => [i.id, i]));
-  const tot = { kcal: 0, protein: 0, carbs: 0, fat: 0, cost: 0 };
-  // can't use more than is left; the same amount comes off the pantry
-  const uses = c.uses.flatMap((u) => {
-    const it = byId.get(u.itemId);
-    if (!it) return [];
-    const amount = Math.min(u.amount, it.qty);
-    const m = itemMacros(it, amount);
-    tot.kcal += m.kcal;
-    tot.protein += m.protein;
-    tot.carbs += m.carbs;
-    tot.fat += m.fat;
-    tot.cost += itemCost(it, amount);
-    return amount > 0 ? [{ itemId: it.id, amount }] : [];
-  });
-  if (!uses.length) return getNutritionData();
-
-  const sp = c.split;
-  const total = sp.by === "portions" ? sp.made : sp.cooked;
-  const eaten = sp.ate / total; // share of the dish eaten now
-  const left = total - sp.ate;
+  const p = previewCook(items, c);
+  if (!p.uses.length) return getNutritionData();
   const date = c.date ?? todayISO();
 
   await sql.begin(async (tx) => {
     const [cook] = await tx<{ id: number }[]>`insert into cooks (date, name) values (${date}, ${c.name}) returning id`;
-    for (const u of uses) {
+    for (const u of p.uses) {
       await tx`insert into cook_uses (cook_id, item_id, amount) values (${cook.id}, ${u.itemId}, ${u.amount})`;
       await tx`update pantry_items set qty = greatest(0, qty - ${u.amount}),
                  finished_at = case when qty - ${u.amount} <= 0.0001 then now() else finished_at end
                where id = ${u.itemId}`;
     }
-    if (eaten > 0) {
+    const e = p.eaten;
+    if (p.share > 0) {
       await tx`insert into meals (date, time, name, kcal, protein, carbs, fat, cost, kind, source, cook_id)
-               values (${date}, ${date === todayISO() ? nowHM() : ""}, ${c.name}, ${Math.round(tot.kcal * eaten)}, ${tot.protein * eaten}, ${tot.carbs * eaten},
-                       ${tot.fat * eaten}, ${tot.cost * eaten}, 'home', 'manual', ${cook.id})`;
+               values (${date}, ${date === todayISO() ? nowHM() : ""}, ${c.name}, ${Math.round(e.kcal)}, ${e.protein}, ${e.carbs},
+                       ${e.fat}, ${e.cost}, 'home', 'manual', ${cook.id})`;
     }
-    if (left > 0.0001) {
-      // per portion, or per 100 g of the cooked dish
-      const base = sp.by === "portions" ? sp.made : sp.cooked / 100;
-      const [lo] = await tx<{ id: number }[]>`
+    const lo = p.leftovers;
+    if (lo) {
+      const [row] = await tx<{ id: number }[]>`
         insert into pantry_items (name, place, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per, bought, use_by)
-        values (${`${c.name}, leftovers`}, ${c.keepIn}, ${left}, ${left}, ${sp.by === "portions" ? "serving" : "g"}, ${tot.cost * (1 - eaten)},
-                ${tot.kcal / base}, ${tot.protein / base}, ${tot.carbs / base}, ${tot.fat / base}, ${date}, ${addDays(date, c.keepIn === "freezer" ? 90 : 4)})
+        values (${`${c.name}, leftovers`}, ${c.keepIn}, ${lo.qty}, ${lo.qty}, ${lo.unit}, ${lo.cost},
+                ${lo.per.kcal}, ${lo.per.protein}, ${lo.per.carbs}, ${lo.per.fat}, ${date}, ${addDays(date, c.keepIn === "freezer" ? 90 : 4)})
         returning id`;
-      await tx`update cooks set leftover_item_id = ${lo.id} where id = ${cook.id}`;
+      await tx`update cooks set leftover_item_id = ${row.id} where id = ${cook.id}`;
     }
   });
   revalidatePath("/");
@@ -168,7 +154,12 @@ export async function eatItem(itemId: number, amount: number) {
   return cookMeal({ name: it.name.replace(/, leftovers$/, ""), uses: [{ itemId, amount }], split: { by: "portions", made: 1, ate: 1 } });
 }
 
-const PantryPatch = GroceryItemIn.pick({ place: true, use_by: true }).extend({ qty: z.coerce.number().min(0).optional(), name: z.string().trim().min(1).max(200).optional() });
+const PantryPatch = GroceryItemIn.pick({ place: true, use_by: true }).extend({
+  qty: z.coerce.number().min(0).optional(),
+  name: z.string().trim().min(1).max(200).optional(),
+  /** the real package size, in any unit people type (2 lb, 32 oz, 907 g); true just confirms the guess */
+  size: z.union([z.literal(true), z.object({ qty: z.coerce.number().positive().max(100_000), unit: z.string().max(10) })]).optional(),
+});
 
 export async function updatePantryItem(id: number, patch: z.input<typeof PantryPatch>) {
   if (id < 0) return getNutritionData();
@@ -179,10 +170,32 @@ export async function updatePantryItem(id: number, patch: z.input<typeof PantryP
   if (p.use_by !== undefined) await sql`update pantry_items set use_by = ${p.use_by ?? null} where id = ${id}`;
   // more than was bought means the package size was guessed wrong: the price then covers the new amount
   if (p.qty != null)
-    await sql`update pantry_items set qty = ${p.qty}, qty_start = greatest(qty_start, ${p.qty}), finished_at = ${p.qty <= 0 ? new Date() : null} where id = ${id}`;
+    await sql`update pantry_items set qty = ${p.qty}, qty_start = greatest(qty_start, ${p.qty}), finished_at = ${p.qty <= 0 ? new Date() : null},
+                size_guessed = size_guessed and ${p.qty} <= qty_start where id = ${id}`;
+  if (p.size === true) await sql`update pantry_items set size_guessed = false where id = ${id}`;
+  else if (p.size) await fixPackageSize(id, p.size);
   revalidatePath("/");
   revalidatePath("/kitchen");
   return getNutritionData();
+}
+
+/**
+ * The package was a different size than guessed. What's left keeps its share (757 of a guessed 907 g stays 83 %),
+ * the price now covers the new size, and a count ("1 item") that becomes a weight gets its macros moved to per 100 g.
+ */
+async function fixPackageSize(id: number, size: { qty: number; unit: string }) {
+  const sql = await db();
+  const [it] = await sql<{ qty: number; qty_start: number; unit: string; kcal_per: number; protein_per: number; carbs_per: number; fat_per: number }[]>`
+    select qty, qty_start, unit, kcal_per, protein_per, carbs_per, fat_per from pantry_items where id = ${id}`;
+  if (!it || !(it.qty_start > 0)) return;
+  const n = normalizeQty(size.qty, size.unit);
+  // macros per 1 unit before, then per base unit after (per 100 g, or per item)
+  const k = it.unit === n.unit ? 1 : ((it.qty_start / perBase(it.unit)) / (n.qty / perBase(n.unit)));
+  const share = it.qty / it.qty_start;
+  await sql`update pantry_items set qty = ${share * n.qty}, qty_start = ${n.qty}, unit = ${n.unit},
+              kcal_per = ${it.kcal_per * k}, protein_per = ${it.protein_per * k}, carbs_per = ${it.carbs_per * k}, fat_per = ${it.fat_per * k},
+              size_guessed = false
+            where id = ${id}`;
 }
 
 /** Gone (eaten without logging, or thrown out). */

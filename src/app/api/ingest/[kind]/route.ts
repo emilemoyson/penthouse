@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import type { TransactionSql } from "postgres";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { todayISO } from "@/lib/dates";
-import { parseWorkoutNote } from "@/lib/parse-workout";
+import { parseISO, todayISO } from "@/lib/dates";
+import { matchExercise, parseWorkoutNote, type ParsedExercise } from "@/lib/parse-workout";
 import { SESSION_KINDS } from "@/lib/exercises";
 import { GroceryItemIn, saveGroceryRun } from "@/lib/groceries";
 import { readReceipt } from "@/lib/receipt";
@@ -19,10 +20,11 @@ export const dynamic = "force-dynamic";
  *   sleep   { date, totalMin, deepMin?, remMin?, lightMin?, awakeMin?, recovery?, hrv?, rhr?, bedtime?, waketime?, source? }
  *   meals   { date, time?, name, kcal, protein?, carbs?, fat?, source? }
  *   emails  { id, receivedAt, sender, subject?, summary?, bullets?: string[], tag?, threadId?, url? }   (threadId → "Open in Gmail" link)
- *   events  { date, title, note?, kind?: "school" | "personal" | "meeting" | "deadline", time?, location?, emailId? }
  *   todos   { id, title, detail?, due?, sender?, emailId?, threadId?, url? }
  *   workout-text  { text, date? }   a gym note in the docs/gym-template.md format (the iPhone "Log workout" Shortcut).
  *                 Every dated session in it is imported; re-sending replaces what that note sent before for the same day and type.   (re-sending never un-ticks a done item)
+ *   gym-note      { date?, splits: [{ kind, sessions: [{ n, notes, exercises: [{ name, sets: [{ weight, unit, reps, alt }] }] }] }], ideas?, skipped? }
+ *                 The Apple Notes gym note parsed by the gym-data-parser agent (scripts/gym_sync.py). Sessions are numbered per split, not dated.
  *   groceries     { date?, store?, total?, extId?, items?: [{ name, qty, unit, price, place?, kcal_per?, ..., barcode? }], text?, image?, mediaType? }
  *                 One shop into the pantry. Send items (missing macros are looked up by barcode, then estimated),
  *                 or a receipt photo (base64 image) or typed text for Claude to read. Re-sending the same extId is skipped.
@@ -66,15 +68,6 @@ const Email = z.object({
   threadId: z.string().max(200).optional(),
   url: z.string().url().max(500).optional(),
 });
-const Event = z.object({
-  date,
-  title: z.string().min(1).max(200),
-  note: z.string().max(1000).default(""),
-  kind: z.enum(["school", "personal", "meeting", "deadline"]).default("personal"),
-  time: z.string().max(20).optional(),
-  location: z.string().max(200).default(""),
-  emailId: z.string().max(200).optional(),
-});
 const Groceries = z.object({
   date: date.optional(),
   store: z.string().max(100).optional(),
@@ -87,6 +80,29 @@ const Groceries = z.object({
   mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]).default("image/jpeg"),
 });
 const WorkoutText = z.object({ text: z.string().min(1).max(50_000), date: date.optional() });
+const NoteSet = z.object({ weight: z.number().nonnegative(), unit: z.enum(["lb", "kg"]), reps: int, alt: int.nullable() });
+const GymNote = z.object({
+  date: date.optional(),
+  splits: z
+    .array(
+      z.object({
+        kind: z.enum(SESSION_KINDS.map((k) => k.id) as [string, ...string[]]),
+        sessionCount: int.optional(),
+        sessions: z
+          .array(
+            z.object({
+              n: z.number().int().min(1).max(1000),
+              notes: z.string().max(1000).default(""),
+              exercises: z.array(z.object({ name: z.string().min(1).max(100), sets: z.array(NoteSet).max(30) })).max(30),
+            }),
+          )
+          .max(500),
+      }),
+    )
+    .max(10),
+  ideas: z.array(z.string().max(100)).max(30).default([]),
+  skipped: z.array(z.string().max(300)).max(100).default([]),
+});
 const Todo = z.object({
   id: z.string().min(1).max(200),
   title: z.string().min(1).max(200),
@@ -123,6 +139,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
     return NextResponse.json({ error: "body must be JSON" }, { status: 400 });
   }
   if (kind === "workout-text") return ingestWorkoutText(body);
+  if (kind === "gym-note") return ingestGymNote(body);
   if (kind === "groceries") return ingestGroceries(body);
   const items = Array.isArray(body) ? body : [body];
   if (items.length > 500) return NextResponse.json({ error: "max 500 records per request" }, { status: 413 });
@@ -164,19 +181,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
         }
         return NextResponse.json({ ok: true, kind, count: rows.length });
       }
-      case "events": {
-        const rows = z.array(Event).parse(items);
-        for (const r of rows) {
-          const hit = await sql`select id from events where date = ${r.date} and title = ${r.title} limit 1`;
-          if (hit.length)
-            await sql`update events set note = ${r.note}, kind = ${r.kind}, time = ${r.time ?? null}, location = ${r.location}, email_id = ${r.emailId ?? null}
-                      where id = ${hit[0].id}`;
-          else
-            await sql`insert into events (date, title, note, kind, time, location, email_id)
-                      values (${r.date}, ${r.title}, ${r.note}, ${r.kind}, ${r.time ?? null}, ${r.location}, ${r.emailId ?? null})`;
-        }
-        return NextResponse.json({ ok: true, kind, count: rows.length });
-      }
       case "todos": {
         const rows = z.array(Todo).parse(items);
         for (const r of rows) {
@@ -196,6 +200,87 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
   }
 }
 
+type Tx = TransactionSql;
+
+/** One workout's sets, adding exercises the library doesn't know yet. */
+async function insertSets(tx: Tx, workoutId: number, exercises: ParsedExercise[]) {
+  for (const [order, ex] of exercises.entries()) {
+    if (!ex.known) await tx`insert into exercises (name, muscle, kind) values (${ex.name}, 'Other', 'compound') on conflict (name) do nothing`;
+    for (const [i, st] of ex.sets.entries()) {
+      await tx`insert into sets (workout_id, exercise, ex_order, set_no, weight, unit, reps, reps_alt)
+               values (${workoutId}, ${ex.name}, ${order}, ${i + 1}, ${st.weight}, ${st.unit}, ${st.reps}, ${st.alt})`;
+    }
+  }
+}
+
+/**
+ * The Apple Notes gym note, already parsed by the gym-data-parser agent (scripts/gym_sync.py).
+ * The note has no dates: a session is (kind, n), the nth time that split was logged. Known sessions keep
+ * their date and get their sets replaced; a new one is dated `date` (the day the note was last edited).
+ */
+async function ingestGymNote(body: unknown) {
+  const parsed = GymNote.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "invalid payload", issues: parsed.error.issues.slice(0, 5) }, { status: 422 });
+  const { splits, ideas, skipped } = parsed.data;
+  const day = parsed.data.date ?? todayISO();
+  const added: string[] = [];
+  let updated = 0;
+
+  const sql = await db();
+  await sql.begin(async (tx) => {
+    for (const sp of splits) {
+      // the first import of this note (seed.ts) becomes sessions 1..n, so they're updated instead of copied
+      const [{ n }] = await tx<{ n: number }[]>`select count(*)::int as n from workouts where source = 'note' and kind = ${sp.kind}`;
+      if (!n) {
+        await tx`update workouts w set source = 'note', note_seq = r.n
+          from (select id, row_number() over (order by date, id) as n from workouts
+                where source = 'manual' and kind = ${sp.kind} and notes like 'Imported from your notes%') r
+          where w.id = r.id`;
+      }
+      const fresh = sp.sessions.filter((s) => s.exercises.length);
+      const known = new Map(
+        (await tx<{ id: number; note_seq: number; notes: string }[]>`select id, note_seq, notes from workouts where source = 'note' and kind = ${sp.kind}`).map((r) => [r.note_seq, r]),
+      );
+      const newOnes = fresh.filter((s) => !known.has(s.n)).sort((a, b) => a.n - b.n);
+      for (const s of fresh) {
+        const exercises = s.exercises.map((e) => ({ ...matchExercise(e.name), sets: e.sets }));
+        const hit = known.get(s.n);
+        let id: number;
+        if (hit) {
+          id = hit.id;
+          await tx`delete from sets where workout_id = ${id}`;
+          if (s.notes && !hit.notes.includes(s.notes)) await tx`update workouts set notes = ${[hit.notes, s.notes].filter(Boolean).join(" ")} where id = ${id}`;
+          updated++;
+        } else {
+          // several new sessions at once (a first sync, or the Mac was off): only the newest gets the real day, older ones a week apart, flagged
+          const back = newOnes.length - 1 - newOnes.indexOf(s);
+          const d = parseISO(day);
+          d.setUTCDate(d.getUTCDate() - 7 * back);
+          const date = d.toISOString().slice(0, 10);
+          const [w] = await tx<{ id: number }[]>`insert into workouts (date, kind, notes, source, note_seq, date_estimated)
+            values (${date}, ${sp.kind}, ${s.notes}, 'note', ${s.n}, ${newOnes.length > 1}) returning id`;
+          id = w.id;
+          added.push(`${SESSION_KINDS.find((k) => k.id === sp.kind)?.label ?? sp.kind} #${s.n} (${date})`);
+        }
+        await insertSets(tx, id, exercises);
+      }
+    }
+  });
+
+  const counts = Object.fromEntries(
+    (await sql<{ kind: string; n: number }[]>`select kind, max(note_seq)::int as n from workouts where source = 'note' group by kind`).map((r) => [r.kind, r.n]),
+  );
+  const message = [
+    added.length ? `New: ${added.join(", ")}.` : "No new sessions.",
+    updated ? `Updated ${updated}.` : "",
+    ideas.length ? `Ideas: ${ideas.join(", ")}.` : "",
+    skipped.length ? `Couldn't read: ${skipped.join(" | ")}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return NextResponse.json({ ok: true, kind: "gym-note", added, updated, counts, message });
+}
+
 /** The gym note Shortcut. Answers in plain text-ish JSON the Shortcut can show as-is. */
 async function ingestWorkoutText(body: unknown) {
   const parsed = WorkoutText.safeParse(typeof body === "string" ? { text: body } : body);
@@ -212,13 +297,7 @@ async function ingestWorkoutText(body: unknown) {
       // replace only what a shortcut sent for this day and type; hand-logged and imported workouts stay
       await tx`delete from workouts where source = 'shortcut' and date = ${s.date} and kind = ${s.kind}`;
       const [w] = await tx<{ id: number }[]>`insert into workouts (date, kind, notes, source) values (${s.date}, ${s.kind}, ${s.notes}, 'shortcut') returning id`;
-      for (const [order, ex] of s.exercises.entries()) {
-        if (!ex.known) await tx`insert into exercises (name, muscle, kind) values (${ex.name}, 'Other', 'compound') on conflict (name) do nothing`;
-        for (const [i, st] of ex.sets.entries()) {
-          await tx`insert into sets (workout_id, exercise, ex_order, set_no, weight, unit, reps, reps_alt)
-                   values (${w.id}, ${ex.name}, ${order}, ${i + 1}, ${st.weight}, ${st.unit}, ${st.reps}, ${st.alt})`;
-        }
-      }
+      await insertSets(tx, w.id, s.exercises);
     }
   });
 

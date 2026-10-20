@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Checks the Apple Notes "gym" note every 30 minutes and sends new sessions to the dashboard.
+  An unchanged note costs nothing; Claude only runs when the note changed.
+  Needs the site to be reachable at INGEST_URL (scripts/.env); a run that can't reach it sends next time.
+  Install:   cp scripts/com.emile.gym-sync.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.emile.gym-sync.plist
+  Remove:    launchctl unload ~/Library/LaunchAgents/com.emile.gym-sync.plist
+  Log:       ~/Library/Logs/gym-sync.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.emile.gym-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/emilemoyson/code/penthouse/scripts/gym_sync.py</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/Users/emilemoyson/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartInterval</key><integer>1800</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/Users/emilemoyson/Library/Logs/gym-sync.log</string>
+  <key>StandardErrorPath</key><string>/Users/emilemoyson/Library/Logs/gym-sync.log</string>
+</dict>
+</plist>

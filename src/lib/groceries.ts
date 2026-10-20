@@ -16,6 +16,7 @@ export const GroceryItemIn = z.object({
   fat_per: z.coerce.number().min(0).max(1000).optional(),
   use_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
   barcode: z.string().max(40).nullish(),
+  size_guessed: z.boolean().optional(), // the package size wasn't printed; the fridge asks to check it
 });
 export type GroceryItemIn = z.input<typeof GroceryItemIn>;
 
@@ -29,7 +30,8 @@ export const GroceryRunIn = z.object({
 });
 export type GroceryRunIn = z.input<typeof GroceryRunIn>;
 
-type Full = z.output<typeof GroceryItemIn> & { place: (typeof PLACES)[number]; kcal_per: number; protein_per: number; carbs_per: number; fat_per: number };
+type Full = z.output<typeof GroceryItemIn> & { place: (typeof PLACES)[number]; kcal_per: number; protein_per: number; carbs_per: number; fat_per: number; size_guessed: boolean };
+const MEASURED = ["g", "kg", "lb", "oz", "ml", "l", "fl oz"];
 const hasMacros = (i: z.output<typeof GroceryItemIn>) => i.kcal_per != null;
 
 /** Nutrition label from Open Food Facts (free, no key). Per 100 g/ml, plus the package size when known. */
@@ -64,14 +66,14 @@ async function lookupBarcode(code: string) {
 }
 
 /** Fills in missing macros: barcode first, then one Claude call for the rest. Items Claude can't reach keep zeros. */
-export async function completeItems(items: z.output<typeof GroceryItemIn>[]): Promise<Full[]> {
+export async function completeItems(items: z.output<typeof GroceryItemIn>[], store = ""): Promise<Full[]> {
   const out: (Full | null)[] = await Promise.all(
     items.map(async (i) => {
-      if (hasMacros(i)) return { ...i, place: i.place ?? "fridge", kcal_per: i.kcal_per!, protein_per: i.protein_per ?? 0, carbs_per: i.carbs_per ?? 0, fat_per: i.fat_per ?? 0 };
+      if (hasMacros(i)) return { ...i, place: i.place ?? "fridge", kcal_per: i.kcal_per!, protein_per: i.protein_per ?? 0, carbs_per: i.carbs_per ?? 0, fat_per: i.fat_per ?? 0, size_guessed: i.size_guessed ?? false };
       if (!i.barcode) return null;
       const off = await lookupBarcode(i.barcode);
       // a count of packages becomes grams or ml; without a package size the per-100 g label can't be used
-      const byCount = !["g", "kg", "lb", "oz", "ml", "l", "fl oz"].includes(i.unit.toLowerCase());
+      const byCount = !MEASURED.includes(i.unit.toLowerCase());
       if (!off || (byCount && !off.size)) return null;
       return {
         ...i,
@@ -82,18 +84,22 @@ export async function completeItems(items: z.output<typeof GroceryItemIn>[]): Pr
         protein_per: off.protein_per,
         carbs_per: off.carbs_per,
         fat_per: off.fat_per,
+        size_guessed: false,
       };
     }),
   );
   const missing = out.map((o, idx) => (o ? -1 : idx)).filter((idx) => idx >= 0);
   if (missing.length) {
-    const est = receiptEnabled() ? await estimateItems(missing.map((idx) => items[idx])).catch(() => null) : null;
+    const est = receiptEnabled() ? await estimateItems(missing.map((idx) => items[idx]), store).catch(() => null) : null;
     missing.forEach((idx, k) => {
       const i = items[idx];
       const e = est?.[k];
+      // a weighed line keeps its weight; a count of packages gets Claude's size, flagged so it can be checked
+      const measured = MEASURED.includes(i.unit.toLowerCase());
       out[idx] = e
-        ? { ...i, qty: e.qty, unit: e.unit, place: i.place ?? e.place, kcal_per: e.kcal_per, protein_per: e.protein_per, carbs_per: e.carbs_per, fat_per: e.fat_per, use_by: i.use_by ?? e.use_by }
-        : { ...i, place: i.place ?? "fridge", kcal_per: 0, protein_per: 0, carbs_per: 0, fat_per: 0 };
+        ? { ...i, qty: e.qty, unit: e.unit, place: i.place ?? e.place, kcal_per: e.kcal_per, protein_per: e.protein_per, carbs_per: e.carbs_per, fat_per: e.fat_per, use_by: i.use_by ?? e.use_by,
+            size_guessed: i.size_guessed ?? (!measured && (e.size_guessed || e.unit === "g" || e.unit === "ml")) }
+        : { ...i, place: i.place ?? "fridge", kcal_per: 0, protein_per: 0, carbs_per: 0, fat_per: 0, size_guessed: i.size_guessed ?? false };
     });
   }
   return out as Full[];
@@ -106,16 +112,16 @@ export async function saveGroceryRun(sql: Sql, input: GroceryRunIn): Promise<{ i
     const hit = await sql`select id from grocery_runs where ext_id = ${run.extId} limit 1`;
     if (hit.length) return null;
   }
-  const items = await completeItems(run.items);
+  const items = await completeItems(run.items, run.store);
   const total = run.total ?? Math.round(items.reduce((a, i) => a + i.price, 0) * 100) / 100;
   return sql.begin(async (tx) => {
     const [r] = await tx<{ id: number }[]>`
       insert into grocery_runs (date, store, total, source, ext_id) values (${run.date}, ${run.store}, ${total}, ${run.source}, ${run.extId ?? null}) returning id`;
     for (const i of items) {
       const { qty, unit } = normalizeQty(i.qty, i.unit);
-      await tx`insert into pantry_items (run_id, name, place, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per, bought, use_by, barcode)
+      await tx`insert into pantry_items (run_id, name, place, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per, bought, use_by, barcode, size_guessed)
         values (${r.id}, ${i.name}, ${i.place}, ${qty}, ${qty}, ${unit}, ${i.price}, ${i.kcal_per}, ${i.protein_per}, ${i.carbs_per}, ${i.fat_per},
-                ${run.date}, ${i.use_by ?? null}, ${i.barcode ?? null})`;
+                ${run.date}, ${i.use_by ?? null}, ${i.barcode ?? null}, ${i.size_guessed})`;
     }
     return { id: r.id, items: items.length };
   });

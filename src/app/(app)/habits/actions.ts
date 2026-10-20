@@ -27,22 +27,6 @@ export async function saveHabit(date: string, patch: { read_min?: number | null;
   revalidatePath("/training");
 }
 
-export async function addEvent(form: FormData) {
-  const title = String(form.get("title") || "").trim().slice(0, 200);
-  const date = String(form.get("date") || "");
-  const note = String(form.get("note") || "").trim().slice(0, 500);
-  const kind = String(form.get("kind") || "personal") === "school" ? "school" : "personal";
-  if (!title || !isDate(date)) return;
-  const sql = await db();
-  await sql`insert into events (date, title, note, kind) values (${date}, ${title}, ${note}, ${kind})`;
-  done();
-}
-export async function deleteEvent(id: number) {
-  const sql = await db();
-  await sql`delete from events where id = ${id}`;
-  done();
-}
-
 function stamp<T extends { history?: Record<string, number> }>(rec: T, total: number): T {
   return { ...rec, history: { ...(rec.history || {}), [todayISO()]: total } };
 }

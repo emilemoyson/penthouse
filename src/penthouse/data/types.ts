@@ -75,6 +75,7 @@ export type PantryItem = {
   fat_per: number;
   bought: string;
   use_by: string | null;
+  size_guessed: boolean; // package size wasn't on the receipt
   daysLeft: number;
 };
 export type GroceryRun = { id: number; date: string; store: string; total: number; items: number; source: string };

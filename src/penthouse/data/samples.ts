@@ -74,6 +74,7 @@ export function samplePantry(today: string): PantryItem[] {
     fat_per: m[3],
     bought: addDays(today, -2),
     use_by: addDays(today, daysLeft),
+    size_guessed: false,
     daysLeft,
   });
   return [

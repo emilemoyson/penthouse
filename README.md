@@ -61,8 +61,7 @@ curl -X POST .../api/ingest/meals  -d '{"date":"2026-10-15","time":"08:30","name
 # AI email summaries (from a nightly Gmail + Claude job)
 curl -X POST .../api/ingest/emails -d '{"id":"gmail-msg-id","receivedAt":"2026-10-15T13:05:00Z","sender":"Recruiter","subject":"Next steps","bullets":["Assessment link inside","Due Friday"],"tag":"Job"}'
 
-# calendar events (kind: school | personal | meeting | deadline)
-curl -X POST .../api/ingest/events -d '{"date":"2026-10-22","title":"Tech Summit","kind":"school","time":"6:30 PM","location":"64 Wooster St"}'
+# calendar: no endpoint. The site reads Google Calendar (GOOGLE_CALENDAR_ICS_URL); add events there.
 
 # to-dos pulled from emails (re-sending never un-ticks a done item; threadId adds an "Email" link)
 curl -X POST .../api/ingest/todos -d '{"id":"msg123-1","title":"Complete online assessment","due":"2026-10-24","sender":"Acme","threadId":"18c2..."}'
@@ -74,11 +73,14 @@ curl -X POST .../api/ingest/groceries -d '{"image":"<base64 jpeg>"}'
 
 # a gym note in the docs/gym-template.md format (the iPhone "Log workout" Shortcut)
 curl -X POST .../api/ingest/workout-text -d '{"text":"Push\nSat 17 Oct\nFlat DB press\n50 x 8"}'
+
+# the Apple Notes gym note, parsed by the gym-data-parser agent (scripts/gym_sync.py sends this)
+curl -X POST .../api/ingest/gym-note -d '{"date":"2026-10-19","splits":[{"kind":"push","sessions":[{"n":5,"notes":"","exercises":[{"name":"Flat DB press","sets":[{"weight":55,"unit":"lb","reps":8,"alt":null}]}]}]}]}'
 ```
 
 Where each source comes from:
 
-- **Gym:** iPhone Notes with the template in `docs/gym-template.md`, sent by the Shortcut in `docs/shortcuts.md`.
+- **Gym:** the Apple Notes note "gym", checked every 30 min by `scripts/gym_sync.py` and parsed by the `gym-data-parser` agent (see `scripts/CLAUDE.md`). The older Shortcut path (`docs/gym-template.md`, `docs/shortcuts.md`) still works.
 - **Inbox, to-dos, calendar:** the Claude Desktop morning task, prompt in `automation/morning-inbox.md`.
 - **Food:** the kitchen panel and the `/kitchen` page. Shops go into the fridge (receipt photo, typed list or form); cooking from the fridge logs a meal with its calories, protein and cost and takes the amounts off. Photo and typed input need `ANTHROPIC_API_KEY`.
 - **Lidl Plus receipts:** `scripts/lidl_sync.py` (unofficial API, its own venv; setup in the script header) sends new receipts to `/api/ingest/groceries`.

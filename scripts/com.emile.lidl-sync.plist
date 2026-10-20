@@ -12,9 +12,9 @@
   <key>Label</key><string>com.emile.lidl-sync</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/emilemoyson/Documents/penthouse/scripts/.venv-lidl/bin/python</string>
+    <string>/Users/emilemoyson/code/penthouse/scripts/.venv-lidl/bin/python</string>
     <string>-W</string><string>ignore</string>
-    <string>/Users/emilemoyson/Documents/penthouse/scripts/lidl_sync.py</string>
+    <string>/Users/emilemoyson/code/penthouse/scripts/lidl_sync.py</string>
   </array>
   <key>StartCalendarInterval</key>
   <array>

@@ -162,6 +162,10 @@ alter table events add column if not exists email_id text;
 alter table email_summaries add column if not exists url text;
 alter table todos add column if not exists url text;
 
+-- gym note (Apple Notes, scripts/gym_sync.py): no dates in the note, so a session is (kind, note_seq) = the nth time that split was logged
+alter table workouts add column if not exists note_seq integer;
+create unique index if not exists workouts_note_seq_idx on workouts(kind, note_seq) where source = 'note';
+
 -- ---------- kitchen: grocery runs, pantry, meal cost ----------
 create table if not exists grocery_runs (
   id serial primary key,
@@ -196,6 +200,7 @@ create index if not exists pantry_open_idx on pantry_items(finished_at);
 alter table grocery_runs add column if not exists ext_id text;               -- e.g. Lidl Plus receipt id, so re-syncing is safe
 create unique index if not exists grocery_runs_ext_idx on grocery_runs(ext_id);
 alter table pantry_items add column if not exists barcode text;
+alter table pantry_items add column if not exists size_guessed boolean not null default false; -- no size on the receipt; Claude guessed the package
 
 -- one row per cooking session (or eating straight from the fridge), so a meal can be undone
 create table if not exists cooks (

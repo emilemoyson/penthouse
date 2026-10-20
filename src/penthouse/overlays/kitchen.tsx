@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useMemo, useState, useTransition, type ReactNode } from "react";
 import clsx from "clsx";
-import { Camera, ChevronDown, Keyboard, Minus, Plus, Table2, Trash2, X } from "lucide-react";
+import { ArrowUp, Camera, Check, ChevronDown, Keyboard, Minus, Plus, Table2, Trash2, X } from "lucide-react";
 import type { NutritionData, PantryItem } from "../data/types";
 import { useNutritionData } from "../data/hooks";
-import { addMeal, cookMeal, deleteMeal, eatItem, finishPantryItem, parseGroceries, saveGroceryRun, type CookInput } from "../data/actions";
-import { fmtQty, INPUT_UNITS, itemCost, itemMacros, money, perBase, perLabel, PLACES, USE_SOON_DAYS } from "@/lib/kitchen";
+import { addMeal, cookMeal, deleteMeal, eatItem, finishPantryItem, parseGroceries, saveGroceryRun, updatePantryItem, type CookInput } from "../data/actions";
+import type { ChatCard } from "@/app/api/kitchen/chat/route";
+import { fmtQty, INPUT_UNITS, itemCost, itemMacros, money, perBase, perLabel, PLACES, USE_SOON_DAYS, type CookSplit } from "@/lib/kitchen";
 import { Columns, GlassCard, Ring } from "./glass";
 import { SourceBar, Tabs, dow, nyToday } from "./panels";
 
@@ -83,6 +84,7 @@ export function NutritionPanel({ initial }: { initial: NutritionData }) {
       </div>
 
       <PantryCard data={data} live={live} pending={pending} run={run} />
+      {live && data.receipts && <KitchenChat run={run} />}
       <MealCard data={data} live={live} pending={pending} run={run} />
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -193,6 +195,7 @@ const eatDefault = (p: PantryItem) => {
 
 function PantryRow({ p, live, pending, run }: { p: PantryItem; live: boolean; pending: boolean; run: Run }) {
   const [eating, setEating] = useState(false);
+  const [sizing, setSizing] = useState(false);
   const [amount, setAmount] = useState(() => eatDefault(p));
   const amt = Math.min(Number(amount) || 0, p.qty);
   const m = itemMacros(p, amt);
@@ -203,7 +206,18 @@ function PantryRow({ p, live, pending, run }: { p: PantryItem; live: boolean; pe
           className={clsx("size-1.5 shrink-0 rounded-full", p.daysLeft < 0 ? "bg-rose-400" : p.daysLeft <= USE_SOON_DAYS ? "bg-amber-300" : "bg-white/20")}
           title={p.daysLeft < 0 ? "Past its date" : `${p.daysLeft} days left`}
         />
-        <span className="min-w-0 flex-1 truncate">{p.name}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {p.name}
+          {live && p.size_guessed && (
+            <button
+              onClick={() => setSizing((v) => !v)}
+              className="ml-1.5 rounded px-1 text-[10.5px] text-amber-300/90 ring-1 ring-inset ring-amber-300/30 hover:bg-amber-300/10"
+              title="The receipt didn't show the package size, so it was guessed. Check it against the package."
+            >
+              check size
+            </button>
+          )}
+        </span>
         <span className="w-20 whitespace-nowrap text-right font-mono text-[11.5px] text-white/50">{fmtQty(p.qty, p.unit)}</span>
         <span className="hidden w-14 text-right text-[11.5px] text-white/40 tnum sm:inline">{money(itemCost(p, p.qty))}</span>
         <span className={clsx("w-12 text-right text-[11px] tnum", p.daysLeft < 0 ? "text-rose-300" : p.daysLeft <= USE_SOON_DAYS ? "text-amber-300" : "text-white/35")}>
@@ -225,6 +239,16 @@ function PantryRow({ p, live, pending, run }: { p: PantryItem; live: boolean; pe
           </span>
         )}
       </div>
+      {sizing && (
+        <SizeFix
+          p={p}
+          pending={pending}
+          onSave={(size) => {
+            run(() => updatePantryItem(p.id, { size }));
+            setSizing(false);
+          }}
+        />
+      )}
       {eating && (
         <form
           onSubmit={(e) => {
@@ -248,6 +272,35 @@ function PantryRow({ p, live, pending, run }: { p: PantryItem; live: boolean; pe
   );
 }
 
+/** The whole package as bought. What's left keeps its share. */
+function SizeFix({ p, pending, onSave }: { p: PantryItem; pending: boolean; onSave: (size: true | { qty: number; unit: string }) => void }) {
+  const [qty, setQty] = useState(String(Math.round(p.qty_start)));
+  const [unit, setUnit] = useState<string>(p.unit === "item" || p.unit === "serving" ? "g" : p.unit);
+  const changed = Number(qty) > 0 && !(unit === p.unit && Math.abs(Number(qty) - p.qty_start) < 0.5);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(changed ? { qty: Number(qty), unit } : true);
+      }}
+      className="mt-1.5 flex flex-wrap items-center gap-2 pl-4 text-[11.5px] text-white/50"
+    >
+      <span>Package was</span>
+      <input autoFocus inputMode="decimal" value={qty} onChange={(e) => setQty(num(e.target.value))} className="glass-field h-8 w-20 px-2 text-right font-mono" aria-label={`Package size of ${p.name}`} />
+      <select value={unit} onChange={(e) => setUnit(e.target.value)} className="glass-field h-8 w-auto px-1.5" aria-label="Unit">
+        {INPUT_UNITS.filter((u) => u !== "serving").map((u) => (
+          <option key={u} value={u} className="bg-[#1b1726]">
+            {u}
+          </option>
+        ))}
+      </select>
+      <button disabled={pending} className="h-8 rounded-lg bg-white/90 px-3 text-[12px] font-medium text-black hover:bg-white disabled:opacity-40">
+        {changed ? "Fix size" : "Looks right"}
+      </button>
+    </form>
+  );
+}
+
 /* ---------------------------------------------------------------------- */
 /* Add groceries: photo, typed, or form                                    */
 /* ---------------------------------------------------------------------- */
@@ -258,7 +311,7 @@ type Row = {
   unit: string;
   price: string;
   place: (typeof PLACES)[number];
-  macros?: { kcal_per: number; protein_per: number; carbs_per: number; fat_per: number; use_by: string | null };
+  macros?: { kcal_per: number; protein_per: number; carbs_per: number; fat_per: number; use_by: string | null; size_guessed?: boolean };
 };
 const blankRow = (): Row => ({ name: "", qty: "1", unit: "item", price: "", place: "fridge" });
 
@@ -297,7 +350,7 @@ function GroceryAdder({ receipts, onDone }: { receipts: boolean; onDone: (next: 
           unit: i.unit,
           price: i.price.toFixed(2),
           place: i.place,
-          macros: { kcal_per: i.kcal_per, protein_per: i.protein_per, carbs_per: i.carbs_per, fat_per: i.fat_per, use_by: i.use_by },
+          macros: { kcal_per: i.kcal_per, protein_per: i.protein_per, carbs_per: i.carbs_per, fat_per: i.fat_per, use_by: i.use_by, size_guessed: i.size_guessed },
         })),
       );
       setStore(d.store);
@@ -383,7 +436,7 @@ function GroceryAdder({ receipts, onDone }: { receipts: boolean; onDone: (next: 
               <div key={i}>
                 <div className="grid grid-cols-[1fr_3.6rem_4.4rem_4.4rem_1.5rem] gap-1.5 max-sm:grid-cols-[1fr_3.4rem_4.2rem_1.5rem]">
                   <input value={r.name} onChange={(e) => set(i, { name: e.target.value, macros: undefined })} placeholder="Item" className="glass-field" />
-                  <input inputMode="decimal" value={r.qty} onChange={(e) => set(i, { qty: e.target.value.replace(/[^\d.]/g, "") })} className="glass-field px-2 font-mono" aria-label="Amount" />
+                  <input inputMode="decimal" value={r.qty} onChange={(e) => set(i, { qty: e.target.value.replace(/[^\d.]/g, ""), macros: r.macros && { ...r.macros, size_guessed: false } })} className="glass-field px-2 font-mono" aria-label="Amount" />
                   <select value={r.unit} onChange={(e) => set(i, { unit: e.target.value })} className="glass-field px-1.5" aria-label="Unit">
                     {[...new Set([r.unit, ...INPUT_UNITS])].map((u) => (
                       <option key={u} value={u} className="bg-[#1b1726]">
@@ -404,6 +457,7 @@ function GroceryAdder({ receipts, onDone }: { receipts: boolean; onDone: (next: 
                       </option>
                     ))}
                   </select>
+                  {r.macros?.size_guessed && <span className="text-amber-300/80">size guessed</span>}
                   {r.macros && (
                     <span className="truncate font-mono">
                       {Math.round(r.macros.kcal_per)} kcal · P{r1(r.macros.protein_per)} per {perLabel(r.unit)}
@@ -429,6 +483,239 @@ function GroceryAdder({ receipts, onDone }: { receipts: boolean; onDone: (next: 
         </div>
       )}
       {error && <div className="text-[12px] text-rose-300">{error}</div>}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* Kitchen chat: say what you cooked, check the card, save                 */
+/* ---------------------------------------------------------------------- */
+
+type Turn = { role: "user"; text: string } | { role: "assistant"; text: string; cards: ChatCard[]; error?: string };
+type ApiMessage = { role: "user" | "assistant"; content: unknown };
+
+const macroText = (m: { kcal: number; protein: number; carbs: number; fat: number }) =>
+  `${Math.round(m.kcal)} kcal · P${Math.round(m.protein)} C${Math.round(m.carbs)} F${Math.round(m.fat)}`;
+
+function KitchenChat({ run }: { run: Run }) {
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<Record<string, "saving" | "saved" | "failed">>({});
+  // the API conversation, sent back each turn; notes say what was saved since the last message
+  const history = useRef<ApiMessage[]>([]);
+  const notes = useRef<string[]>([]);
+  const list = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    list.current?.scrollTo({ top: list.current.scrollHeight });
+  }, [turns]);
+
+  const patchLast = (fn: (t: Extract<Turn, { role: "assistant" }>) => Partial<Extract<Turn, { role: "assistant" }>>) =>
+    setTurns((ts) => {
+      const last = ts[ts.length - 1];
+      return last?.role === "assistant" ? [...ts.slice(0, -1), { ...last, ...fn(last) }] : ts;
+    });
+
+  const send = async () => {
+    const said = text.trim();
+    if (!said || busy) return;
+    setText("");
+    setBusy(true);
+    setTurns((ts) => [...ts, { role: "user", text: said }, { role: "assistant", text: "", cards: [] }]);
+    const withNotes = notes.current.length ? `[Saved] ${notes.current.join(" ")}\n\n${said}` : said;
+    try {
+      const res = await fetch("/api/kitchen/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ history: history.current, text: withNotes }) });
+      if (!res.ok || !res.body) throw new Error(((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? "Couldn't reach the kitchen chat.");
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const ev = JSON.parse(line) as { t: "text"; d: string } | { t: "card"; card: ChatCard } | { t: "done"; messages: ApiMessage[] } | { t: "error"; message: string };
+          if (ev.t === "text") patchLast((l) => ({ text: l.text + ev.d }));
+          else if (ev.t === "card") patchLast((l) => ({ cards: [...l.cards, ev.card] }));
+          else if (ev.t === "error") patchLast(() => ({ error: ev.message }));
+          else {
+            // only a finished turn joins the conversation, so a failed one can just be asked again
+            history.current = [...history.current, ...ev.messages];
+            notes.current = [];
+          }
+        }
+      }
+    } catch (e) {
+      patchLast(() => ({ error: e instanceof Error ? e.message : "Something went wrong." }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = async (card: ChatCard) => {
+    setSaved((s) => ({ ...s, [card.id]: "saving" }));
+    try {
+      const next =
+        card.kind === "cook" ? await cookMeal(card.input) : card.kind === "eat" ? await eatItem(card.itemId, card.amount) : await updatePantryItem(card.itemId, { size: card.size });
+      run(async () => next);
+      setSaved((s) => ({ ...s, [card.id]: "saved" }));
+      notes.current.push(
+        card.kind === "cook" ? `Saved "${card.input.name}".` : card.kind === "eat" ? `Saved eating ${card.amountLabel} of ${card.name}.` : `Saved the ${card.name} package as ${card.to}.`,
+      );
+    } catch {
+      setSaved((s) => ({ ...s, [card.id]: "failed" }));
+    }
+  };
+
+  return (
+    <GlassCard title="Kitchen chat" right={<span className="text-[11px] text-white/40">nothing saves until you press Save</span>}>
+      {turns.length > 0 && (
+        <div ref={list} className="mb-2.5 max-h-[26rem] space-y-2.5 overflow-y-auto pr-1">
+          {turns.map((t, i) =>
+            t.role === "user" ? (
+              <div key={i} className="ml-8 rounded-xl rounded-br-sm bg-white/[0.1] px-3 py-2 text-[13px] leading-snug">
+                {t.text}
+              </div>
+            ) : (
+              <div key={i} className="mr-4 space-y-2 text-[13px] leading-snug text-white/80">
+                {t.text.trim() ? <div className="whitespace-pre-wrap">{t.text.trim()}</div> : !t.error && !t.cards.length && busy && i === turns.length - 1 ? <div className="text-white/40">Thinking…</div> : null}
+                {t.cards.map((c) => (
+                  <ProposalCard key={c.id} card={c} state={saved[c.id]} onSave={() => save(c)} />
+                ))}
+                {t.error && <div className="text-[12px] text-rose-300">{t.error}</div>}
+              </div>
+            ),
+          )}
+        </div>
+      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          send();
+        }}
+        className="flex items-end gap-2"
+      >
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          rows={2}
+          placeholder={turns.length ? "Reply, or log something else" : "Made tacos with 400 g ground beef, 4 tortillas and 60 g cheddar. Ate 2 of 4 portions, the rest is meal prep."}
+          className="glass-field h-auto flex-1 resize-none py-2 leading-snug"
+          aria-label="Tell the kitchen what you cooked or ate"
+        />
+        <button disabled={busy || !text.trim()} className="grid size-9 place-items-center rounded-lg bg-white/90 text-black transition hover:bg-white disabled:opacity-40" aria-label="Send">
+          <ArrowUp size={16} />
+        </button>
+      </form>
+    </GlassCard>
+  );
+}
+
+function ProposalCard({ card, state, onSave }: { card: ChatCard; state?: "saving" | "saved" | "failed"; onSave: () => void }) {
+  const button = (
+    <button
+      disabled={state === "saving" || state === "saved"}
+      onClick={onSave}
+      className={clsx("inline-flex h-8 items-center gap-1 rounded-lg px-3 text-[12.5px] font-medium transition", state === "saved" ? "bg-emerald-400/15 text-emerald-300" : "bg-white/90 text-black hover:bg-white disabled:opacity-50")}
+    >
+      {state === "saved" ? (
+        <>
+          <Check size={13} /> Saved
+        </>
+      ) : state === "saving" ? (
+        "Saving…"
+      ) : state === "failed" ? (
+        "Try again"
+      ) : (
+        "Save"
+      )}
+    </button>
+  );
+  const box = "rounded-xl border border-white/[0.1] bg-black/25 p-3 text-white";
+
+  if (card.kind === "size")
+    return (
+      <div className={clsx(box, "flex items-center gap-3")}>
+        <div className="min-w-0 flex-1 text-[12.5px]">
+          <div className="font-medium">{card.name}</div>
+          <div className="text-white/55">
+            Package {card.from} → {card.to} · {card.left} left
+          </div>
+        </div>
+        {button}
+      </div>
+    );
+
+  if (card.kind === "eat")
+    return (
+      <div className={clsx(box, "flex items-center gap-3")}>
+        <div className="min-w-0 flex-1 text-[12.5px]">
+          <div className="font-medium">
+            {card.name} <span className="font-normal text-white/50">· {card.amountLabel}</span>
+          </div>
+          <div className="font-mono text-[11.5px] text-white/55">
+            {macroText(card.eaten)} · {money(card.eaten.cost)}
+          </div>
+        </div>
+        {button}
+      </div>
+    );
+
+  return (
+    <div className={clsx(box, "space-y-2.5")}>
+      <div className="text-[13.5px] font-medium">{card.input.name}</div>
+      <table className="w-full text-[12px]">
+        <thead>
+          <tr className="text-left text-[11px] text-white/40">
+            <th className="pb-1 font-normal">From the fridge</th>
+            <th className="pb-1 text-right font-normal">Used</th>
+            <th className="pb-1 text-right font-normal">Left</th>
+          </tr>
+        </thead>
+        <tbody className="font-mono text-white/75">
+          {card.lines.map((l) => (
+            <tr key={l.name}>
+              <td className="py-0.5 pr-2 font-sans">
+                {l.name}
+                {l.short && <span className="ml-1 text-[11px] text-amber-300">all that was left</span>}
+              </td>
+              <td className="py-0.5 text-right">{l.amount}</td>
+              <td className="py-0.5 pl-2 text-right text-white/45">{l.left}</td>
+            </tr>
+          ))}
+          {card.extras.map((x) => (
+            <tr key={x.name}>
+              <td className="py-0.5 pr-2 font-sans text-white/55">
+                {x.name} <span className="text-[11px] text-white/35">not from fridge</span>
+              </td>
+              <td className="py-0.5 text-right text-white/45" colSpan={2}>
+                {Math.round(x.kcal)} kcal
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="grid grid-cols-2 gap-2 font-mono text-[11.5px]">
+        <div className="rounded-lg bg-white/[0.05] p-2">
+          <div className="font-sans text-[11px] text-white/45">You ate</div>
+          {(card.input.split as CookSplit).ate > 0 ?`${macroText(card.eaten)} · ${money(card.eaten.cost)}` : "Nothing now"}
+        </div>
+        <div className="rounded-lg bg-white/[0.05] p-2">
+          <div className="font-sans text-[11px] text-white/45">{card.leftovers ? `Meal prep: ${card.leftovers.amount} to the ${card.leftovers.keepIn}` : "Meal prep"}</div>
+          {card.leftovers ? `${macroText(card.leftovers.per)} per ${card.leftovers.perLabel}` : "None"}
+        </div>
+      </div>
+      <div className="flex justify-end">{button}</div>
     </div>
   );
 }
