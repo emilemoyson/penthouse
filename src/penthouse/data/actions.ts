@@ -33,11 +33,34 @@ export async function addMeal(input: z.input<typeof MealIn>) {
   return getNutritionData();
 }
 
+/**
+ * Deletes a meal. If it was cooked from the pantry and its leftovers are untouched, the cook is undone:
+ * the ingredients go back and the leftovers item is removed. Otherwise only the meal row goes.
+ */
 export async function deleteMeal(id: number) {
   if (id < 0) return getNutritionData(); // sample rows aren't stored
   const sql = await db();
-  await sql`delete from meals where id = ${id}`;
+  await sql.begin(async (tx) => {
+    const [m] = await tx<{ cook_id: number | null }[]>`select cook_id from meals where id = ${id}`;
+    const [cook] = m?.cook_id
+      ? await tx<{ id: number; leftover_item_id: number | null }[]>`select id, leftover_item_id from cooks where id = ${m.cook_id}`
+      : [];
+    const lo = cook?.leftover_item_id
+      ? (await tx<{ qty: number; qty_start: number; finished_at: Date | null }[]>`select qty, qty_start, finished_at from pantry_items where id = ${cook.leftover_item_id}`)[0]
+      : null;
+    const undo = cook && (!lo || (lo.finished_at == null && Math.abs(lo.qty - lo.qty_start) < 0.0001));
+    if (undo) {
+      const uses = await tx<{ item_id: number; amount: number }[]>`select item_id, amount from cook_uses where cook_id = ${cook.id}`;
+      for (const u of uses) await tx`update pantry_items set qty = least(qty_start, qty + ${u.amount}), finished_at = null where id = ${u.item_id}`;
+      if (cook.leftover_item_id) await tx`delete from pantry_items where id = ${cook.leftover_item_id}`;
+      await tx`delete from meals where cook_id = ${cook.id}`;
+      await tx`delete from cooks where id = ${cook.id}`;
+    } else {
+      await tx`delete from meals where id = ${id}`;
+    }
+  });
   revalidatePath("/");
+  revalidatePath("/kitchen");
   return getNutritionData();
 }
 
@@ -59,27 +82,38 @@ export async function saveGroceryRun(input: Omit<GroceryRunIn, "date"> & { date?
   return getNutritionData();
 }
 
-const CookIn = z.object({
-  name: z.string().trim().min(1).max(200),
-  uses: z.array(z.object({ itemId: z.number().int().positive(), amount: z.coerce.number().positive() })).min(1).max(30),
-  servings: z.coerce.number().int().min(1).max(20).default(1),
-});
+const CookIn = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    uses: z.array(z.object({ itemId: z.number().int().positive(), amount: z.coerce.number().positive() })).min(1).max(30),
+    /** portions: "made 4, ate 1". weight: weigh the finished dish, then how many grams were eaten. */
+    split: z.discriminatedUnion("by", [
+      z.object({ by: z.literal("portions"), made: z.coerce.number().min(0.5).max(50), ate: z.coerce.number().min(0).max(50) }),
+      z.object({ by: z.literal("weight"), cooked: z.coerce.number().positive().max(50_000), ate: z.coerce.number().min(0).max(50_000) }),
+    ]),
+    keepIn: z.enum(["fridge", "freezer"]).default("fridge"),
+  })
+  .refine((c) => (c.split.by === "portions" ? c.split.ate <= c.split.made : c.split.ate <= c.split.cooked), { message: "Ate more than was made" });
+export type CookInput = z.input<typeof CookIn>;
 
 /**
- * Cooks from the pantry: logs one serving as a meal with macros and cost worked out from the items,
- * takes the amounts used off the pantry, and keeps the other servings in the fridge as leftovers.
+ * Cooks from the pantry. Takes what was used off the pantry, logs the part that was eaten as a meal
+ * (macros and cost from the items), and keeps the rest as a leftovers item: per portion, or per 100 g when weighed.
+ * Every cook is recorded with what it used, so deleting its meal can put the food back.
  */
-export async function cookMeal(input: z.input<typeof CookIn>) {
+export async function cookMeal(input: CookInput) {
   const c = CookIn.parse(input);
   const sql = await db();
   const ids = c.uses.map((u) => u.itemId);
   const items = await sql<{ id: number; qty: number; qty_start: number; unit: string; price: number; kcal_per: number; protein_per: number; carbs_per: number; fat_per: number }[]>`
-    select id, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per from pantry_items where id in ${sql(ids)}`;
+    select id, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per from pantry_items where id in ${sql(ids)} and finished_at is null`;
   const byId = new Map(items.map((i) => [i.id, i]));
   const tot = { kcal: 0, protein: 0, carbs: 0, fat: 0, cost: 0 };
-  for (const u of c.uses) {
+  // can't use more than is left; the same amount comes off the pantry
+  const uses = c.uses.flatMap((u) => {
     const it = byId.get(u.itemId);
-    if (!it) continue;
+    if (!it) return [];
     const amount = Math.min(u.amount, it.qty);
     const m = itemMacros(it, amount);
     tot.kcal += m.kcal;
@@ -87,33 +121,51 @@ export async function cookMeal(input: z.input<typeof CookIn>) {
     tot.carbs += m.carbs;
     tot.fat += m.fat;
     tot.cost += itemCost(it, amount);
-  }
-  const n = c.servings;
-  const today = todayISO();
+    return amount > 0 ? [{ itemId: it.id, amount }] : [];
+  });
+  if (!uses.length) return getNutritionData();
+
+  const sp = c.split;
+  const total = sp.by === "portions" ? sp.made : sp.cooked;
+  const eaten = sp.ate / total; // share of the dish eaten now
+  const left = total - sp.ate;
+  const date = c.date ?? todayISO();
+
   await sql.begin(async (tx) => {
-    for (const u of c.uses) {
+    const [cook] = await tx<{ id: number }[]>`insert into cooks (date, name) values (${date}, ${c.name}) returning id`;
+    for (const u of uses) {
+      await tx`insert into cook_uses (cook_id, item_id, amount) values (${cook.id}, ${u.itemId}, ${u.amount})`;
       await tx`update pantry_items set qty = greatest(0, qty - ${u.amount}),
                  finished_at = case when qty - ${u.amount} <= 0.0001 then now() else finished_at end
                where id = ${u.itemId}`;
     }
-    await tx`insert into meals (date, time, name, kcal, protein, carbs, fat, cost, kind, source)
-             values (${today}, ${nowHM()}, ${c.name}, ${Math.round(tot.kcal / n)}, ${tot.protein / n}, ${tot.carbs / n}, ${tot.fat / n}, ${tot.cost / n}, 'home', 'manual')`;
-    if (n > 1) {
-      await tx`insert into pantry_items (name, place, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per, bought, use_by)
-               values (${`${c.name}, leftovers`}, 'fridge', ${n - 1}, ${n - 1}, 'serving', ${(tot.cost / n) * (n - 1)},
-                       ${tot.kcal / n}, ${tot.protein / n}, ${tot.carbs / n}, ${tot.fat / n}, ${today}, ${addDays(today, 4)})`;
+    if (eaten > 0) {
+      await tx`insert into meals (date, time, name, kcal, protein, carbs, fat, cost, kind, source, cook_id)
+               values (${date}, ${date === todayISO() ? nowHM() : ""}, ${c.name}, ${Math.round(tot.kcal * eaten)}, ${tot.protein * eaten}, ${tot.carbs * eaten},
+                       ${tot.fat * eaten}, ${tot.cost * eaten}, 'home', 'manual', ${cook.id})`;
+    }
+    if (left > 0.0001) {
+      // per portion, or per 100 g of the cooked dish
+      const base = sp.by === "portions" ? sp.made : sp.cooked / 100;
+      const [lo] = await tx<{ id: number }[]>`
+        insert into pantry_items (name, place, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per, bought, use_by)
+        values (${`${c.name}, leftovers`}, ${c.keepIn}, ${left}, ${left}, ${sp.by === "portions" ? "serving" : "g"}, ${tot.cost * (1 - eaten)},
+                ${tot.kcal / base}, ${tot.protein / base}, ${tot.carbs / base}, ${tot.fat / base}, ${date}, ${addDays(date, c.keepIn === "freezer" ? 90 : 4)})
+        returning id`;
+      await tx`update cooks set leftover_item_id = ${lo.id} where id = ${cook.id}`;
     }
   });
   revalidatePath("/");
+  revalidatePath("/kitchen");
   return getNutritionData();
 }
 
-/** Eat one serving of a pantry item as is (a shake, a yogurt, leftovers). */
+/** Eat some of a pantry item as is (leftovers, a yogurt, a shake): any amount, in the item's unit. */
 export async function eatItem(itemId: number, amount: number) {
   const sql = await db();
   const [it] = await sql<{ name: string }[]>`select name from pantry_items where id = ${itemId}`;
-  if (!it) return getNutritionData();
-  return cookMeal({ name: it.name.replace(/, leftovers$/, ""), uses: [{ itemId, amount }] });
+  if (!it || !(amount > 0)) return getNutritionData();
+  return cookMeal({ name: it.name.replace(/, leftovers$/, ""), uses: [{ itemId, amount }], split: { by: "portions", made: 1, ate: 1 } });
 }
 
 const PantryPatch = GroceryItemIn.pick({ place: true, use_by: true }).extend({ qty: z.coerce.number().min(0).optional(), name: z.string().trim().min(1).max(200).optional() });

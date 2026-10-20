@@ -197,7 +197,23 @@ alter table grocery_runs add column if not exists ext_id text;               -- 
 create unique index if not exists grocery_runs_ext_idx on grocery_runs(ext_id);
 alter table pantry_items add column if not exists barcode text;
 
-alter table meals add column if not exists cost double precision;           -- null = unknown
+-- one row per cooking session (or eating straight from the fridge), so a meal can be undone
+create table if not exists cooks (
+  id serial primary key,
+  date text not null,
+  name text not null,
+  leftover_item_id integer references pantry_items(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create table if not exists cook_uses (
+  cook_id integer not null references cooks(id) on delete cascade,
+  item_id integer not null references pantry_items(id) on delete cascade,
+  amount double precision not null
+);
+create index if not exists cook_uses_cook_idx on cook_uses(cook_id);
+alter table meals add column if not exists cook_id integer references cooks(id) on delete set null;
+
+alter table meals add column if not exists cost double precision;          -- null = unknown
 alter table meals add column if not exists kind text not null default 'home'; -- home | out
 
 create table if not exists kv (

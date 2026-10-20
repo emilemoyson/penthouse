@@ -5,10 +5,10 @@ import clsx from "clsx";
 import { Camera, ChevronDown, Keyboard, Minus, Plus, Table2, Trash2, X } from "lucide-react";
 import type { NutritionData, PantryItem } from "../data/types";
 import { useNutritionData } from "../data/hooks";
-import { addMeal, cookMeal, deleteMeal, eatItem, finishPantryItem, parseGroceries, saveGroceryRun } from "../data/actions";
+import { addMeal, cookMeal, deleteMeal, eatItem, finishPantryItem, parseGroceries, saveGroceryRun, type CookInput } from "../data/actions";
 import { fmtQty, INPUT_UNITS, itemCost, itemMacros, money, perBase, perLabel, PLACES, USE_SOON_DAYS } from "@/lib/kitchen";
 import { Columns, GlassCard, Ring } from "./glass";
-import { SourceBar, Tabs, dow } from "./panels";
+import { SourceBar, Tabs, dow, nyToday } from "./panels";
 
 /* ====================================================================== */
 /* 🍳 Kitchen → useNutritionData                                           */
@@ -178,41 +178,73 @@ function PantryCard({ data, live, pending, run }: { data: NutritionData; live: b
 function PantryList({ items, live, pending, run }: { items: PantryItem[]; live: boolean; pending: boolean; run: Run }) {
   return (
     <ul className="divide-y divide-white/[0.06]">
-      {items.map((p) => {
-        const one = p.unit === "item" || p.unit === "serving";
-        return (
-          <li key={p.id} className="group flex items-center gap-2.5 py-1.5 text-[13px]">
-            <span
-              className={clsx("size-1.5 shrink-0 rounded-full", p.daysLeft < 0 ? "bg-rose-400" : p.daysLeft <= USE_SOON_DAYS ? "bg-amber-300" : "bg-white/20")}
-              title={p.daysLeft < 0 ? "Past its date" : `${p.daysLeft} days left`}
-            />
-            <span className="min-w-0 flex-1 truncate">{p.name}</span>
-            <span className="w-16 text-right font-mono text-[11.5px] text-white/50">{fmtQty(p.qty, p.unit)}</span>
-            <span className="hidden w-14 text-right text-[11.5px] text-white/40 tnum sm:inline">{money(itemCost(p, p.qty))}</span>
-            <span className={clsx("w-12 text-right text-[11px] tnum", p.daysLeft < 0 ? "text-rose-300" : p.daysLeft <= USE_SOON_DAYS ? "text-amber-300" : "text-white/35")}>
-              {p.daysLeft < 0 ? "past" : p.daysLeft === 0 ? "today" : `${p.daysLeft}d`}
-            </span>
-            {live && (
-              <span className="flex w-[5.5rem] justify-end gap-0.5 opacity-0 transition group-hover:opacity-100 max-sm:opacity-100">
-                {one && (
-                  <button
-                    disabled={pending}
-                    onClick={() => run(() => eatItem(p.id, 1))}
-                    className="rounded-md px-1.5 py-0.5 text-[11px] text-white/60 hover:bg-white/10 hover:text-white"
-                    title={`Log one ${p.unit === "serving" ? "serving" : ""} as a meal`}
-                  >
-                    Eat 1
-                  </button>
-                )}
-                <button disabled={pending} onClick={() => run(() => finishPantryItem(p.id))} className="rounded-md px-1.5 py-0.5 text-[11px] text-white/40 hover:bg-white/10 hover:text-rose-300" title="Used up or thrown out">
-                  Gone
-                </button>
-              </span>
-            )}
-          </li>
-        );
-      })}
+      {items.map((p) => (
+        <PantryRow key={p.id} p={p} live={live} pending={pending} run={run} />
+      ))}
     </ul>
+  );
+}
+
+/** A sensible first amount to eat: one item or portion, or a plate (350 g of leftovers, 150 g of anything else). */
+const eatDefault = (p: PantryItem) => {
+  if (perBase(p.unit) === 1) return String(Math.min(p.qty, 1));
+  return String(Math.round(Math.min(p.qty, p.name.endsWith(", leftovers") ? 350 : 150)));
+};
+
+function PantryRow({ p, live, pending, run }: { p: PantryItem; live: boolean; pending: boolean; run: Run }) {
+  const [eating, setEating] = useState(false);
+  const [amount, setAmount] = useState(() => eatDefault(p));
+  const amt = Math.min(Number(amount) || 0, p.qty);
+  const m = itemMacros(p, amt);
+  return (
+    <li className="py-1.5 text-[13px]">
+      <div className="group flex items-center gap-2.5">
+        <span
+          className={clsx("size-1.5 shrink-0 rounded-full", p.daysLeft < 0 ? "bg-rose-400" : p.daysLeft <= USE_SOON_DAYS ? "bg-amber-300" : "bg-white/20")}
+          title={p.daysLeft < 0 ? "Past its date" : `${p.daysLeft} days left`}
+        />
+        <span className="min-w-0 flex-1 truncate">{p.name}</span>
+        <span className="w-20 whitespace-nowrap text-right font-mono text-[11.5px] text-white/50">{fmtQty(p.qty, p.unit)}</span>
+        <span className="hidden w-14 text-right text-[11.5px] text-white/40 tnum sm:inline">{money(itemCost(p, p.qty))}</span>
+        <span className={clsx("w-12 text-right text-[11px] tnum", p.daysLeft < 0 ? "text-rose-300" : p.daysLeft <= USE_SOON_DAYS ? "text-amber-300" : "text-white/35")}>
+          {p.daysLeft < 0 ? "past" : p.daysLeft === 0 ? "today" : `${p.daysLeft}d`}
+        </span>
+        {live && (
+          <span className={clsx("flex w-[5.5rem] justify-end gap-0.5 transition group-hover:opacity-100 max-sm:opacity-100", eating ? "opacity-100" : "opacity-0")}>
+            <button
+              disabled={pending}
+              onClick={() => setEating((e) => !e)}
+              className={clsx("rounded-md px-1.5 py-0.5 text-[11px] hover:bg-white/10 hover:text-white", eating ? "bg-white/10 text-white" : "text-white/60")}
+              title="Log some of this as a meal"
+            >
+              Eat
+            </button>
+            <button disabled={pending} onClick={() => run(() => finishPantryItem(p.id))} className="rounded-md px-1.5 py-0.5 text-[11px] text-white/40 hover:bg-white/10 hover:text-rose-300" title="Used up or thrown out">
+              Gone
+            </button>
+          </span>
+        )}
+      </div>
+      {eating && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (amt > 0) run(() => eatItem(p.id, amt));
+            setEating(false);
+          }}
+          className="mt-1.5 flex items-center gap-2 pl-4"
+        >
+          <input autoFocus inputMode="decimal" value={amount} onChange={(e) => setAmount(num(e.target.value))} className="glass-field h-8 w-20 px-2 text-right font-mono" aria-label={`How much ${p.name} you ate`} />
+          <span className="text-[11.5px] text-white/45">{p.unit === "item" ? "of " + fmtQty(p.qty, p.unit) : p.unit}</span>
+          <span className="flex-1 truncate font-mono text-[11px] text-white/55">
+            {Math.round(m.kcal)} kcal · {Math.round(m.protein)}g protein · {money(itemCost(p, amt))}
+          </span>
+          <button disabled={pending || !(amt > 0)} className="h-8 rounded-lg bg-white/90 px-3 text-[12px] font-medium text-black hover:bg-white disabled:opacity-40">
+            Log
+          </button>
+        </form>
+      )}
+    </li>
   );
 }
 
@@ -453,7 +485,9 @@ function MealCard({ data, live, pending, run }: { data: NutritionData; live: boo
             <span className="w-12 text-right text-[12px] text-white/50 tnum">{m.cost != null ? money(m.cost) : ""}</span>
             <span className="w-12 text-right font-medium tnum">{m.kcal}</span>
             {live && (
-              <button onClick={() => run(() => deleteMeal(m.id))} className="text-white/25 opacity-0 transition group-hover:opacity-100 hover:text-rose-300" aria-label={`Delete ${m.name}`}>
+              <button onClick={() => run(() => deleteMeal(m.id))} className="text-white/25 opacity-0 transition group-hover:opacity-100 hover:text-rose-300" aria-label={`Delete ${m.name}`}
+                title="Delete. A cooked meal puts its ingredients back in the fridge while its leftovers are untouched."
+              >
                 <Trash2 size={13} />
               </button>
             )}
@@ -474,97 +508,199 @@ function MealCard({ data, live, pending, run }: { data: NutritionData; live: boo
 const saveBtn = "h-9 w-full rounded-lg bg-white/90 text-[13px] font-medium text-black transition hover:bg-white disabled:opacity-40";
 const num = (v: string) => v.replace(/[^\d.]/g, "");
 
-/** A sensible first amount: one item or serving, or 150 g/ml. */
+/** A sensible first amount to cook with: one item or serving, or 150 g/ml. */
 const defaultAmount = (p: PantryItem) => String(Math.min(p.qty, perBase(p.unit) === 100 ? 150 : 1));
 
-function CookForm({ pantry, pending, onSave }: { pantry: PantryItem[]; pending: boolean; onSave: (input: Parameters<typeof cookMeal>[0]) => void }) {
+const step = (v: string, d: number, min: number) => String(Math.max(min, Math.round(((Number(v) || 0) + d) * 2) / 2));
+
+/** Number box with half-step buttons, for portions. */
+function Stepper({ value, set, min, label }: { value: string; set: (v: string) => void; min: number; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <button type="button" onClick={() => set(step(value, -0.5, min))} className="rounded-md p-1 hover:bg-white/10" aria-label={`Less ${label}`}>
+        <Minus size={12} />
+      </button>
+      <input inputMode="decimal" value={value} onChange={(e) => set(num(e.target.value))} className="glass-field h-7 w-11 px-1 text-center font-mono" aria-label={label} />
+      <button type="button" onClick={() => set(step(value, 0.5, min))} className="rounded-md p-1 hover:bg-white/10" aria-label={`More ${label}`}>
+        <Plus size={12} />
+      </button>
+    </span>
+  );
+}
+
+function CookForm({ pantry, pending, onSave }: { pantry: PantryItem[]; pending: boolean; onSave: (input: CookInput) => void }) {
   const [name, setName] = useState("");
+  const [date, setDate] = useState(nyToday());
   const [uses, setUses] = useState<{ id: number; amount: string }[]>([]);
-  const [servings, setServings] = useState(1);
+  const [by, setBy] = useState<"portions" | "weight">("portions");
+  const [made, setMade] = useState("1");
+  const [ate, setAte] = useState("1");
+  const [cooked, setCooked] = useState("");
+  const [ateG, setAteG] = useState("");
+  const [keepIn, setKeepIn] = useState<"fridge" | "freezer">("fridge");
   const byId = useMemo(() => new Map(pantry.map((p) => [p.id, p])), [pantry]);
   const unused = pantry.filter((p) => !uses.some((u) => u.id === p.id));
 
   const tot = uses.reduce(
     (a, u) => {
       const p = byId.get(u.id);
-      const amt = Math.min(Number(u.amount) || 0, p?.qty ?? 0);
       if (!p) return a;
+      const amt = Math.min(Number(u.amount) || 0, p.qty);
       const m = itemMacros(p, amt);
-      return { kcal: a.kcal + m.kcal, protein: a.protein + m.protein, cost: a.cost + itemCost(p, amt) };
+      return { kcal: a.kcal + m.kcal, protein: a.protein + m.protein, cost: a.cost + itemCost(p, amt), weight: a.weight + (p.unit === "g" || p.unit === "ml" ? amt : 0) };
     },
-    { kcal: 0, protein: 0, cost: 0 },
+    { kcal: 0, protein: 0, cost: 0, weight: 0 },
   );
+  const total = by === "portions" ? Number(made) || 0 : Number(cooked) || 0;
+  const eatenAmt = by === "portions" ? Number(ate) || 0 : Number(ateG) || 0;
+  const share = total > 0 ? Math.min(1, eatenAmt / total) : 0;
+  const leftAmt = Math.max(0, total - eatenAmt);
+  const over = total > 0 && eatenAmt > total;
+  const valid = name.trim() && uses.some((u) => Number(u.amount) > 0) && total > 0 && !over;
 
   if (!pantry.length) return <div className="mb-3 rounded-xl bg-black/20 p-3 text-[12.5px] text-white/55">Add groceries to the fridge first, then pick what you cooked with.</div>;
 
   return (
-    <div className="mb-3 space-y-2 rounded-xl border border-white/[0.08] bg-black/20 p-3">
-      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="What did you make?" className="glass-field" />
-      {uses.map((u, i) => {
-        const p = byId.get(u.id)!;
-        return (
-          <div key={u.id} className="flex items-center gap-2 text-[13px]">
-            <span className="min-w-0 flex-1 truncate">{p.name}</span>
-            <input
-              inputMode="decimal"
-              value={u.amount}
-              onChange={(e) => setUses((us) => us.map((x, j) => (j === i ? { ...x, amount: num(e.target.value) } : x)))}
-              className="glass-field w-20 px-2 text-right font-mono"
-              aria-label={`Amount of ${p.name}`}
-            />
-            <span className="w-14 text-[11.5px] text-white/45">
-              {p.unit} <span className="text-white/30">/ {fmtQty(p.qty, p.unit).replace(/ .*/, "")}</span>
-            </span>
-            <button onClick={() => setUses((us) => us.filter((_, j) => j !== i))} className="text-white/30 hover:text-rose-300" aria-label="Remove">
-              <X size={14} />
-            </button>
-          </div>
-        );
-      })}
-      {unused.length > 0 && (
-        <select
-          value=""
-          onChange={(e) => {
-            const p = byId.get(Number(e.target.value));
-            if (p) setUses((us) => [...us, { id: p.id, amount: defaultAmount(p) }]);
-          }}
-          className="glass-field text-white/60"
-        >
-          <option value="" className="bg-[#1b1726]">
-            + Add an ingredient from the fridge
-          </option>
-          {unused.map((p) => (
-            <option key={p.id} value={p.id} className="bg-[#1b1726]">
-              {p.name} ({fmtQty(p.qty, p.unit)} left)
+    <div className="mb-3 space-y-2.5 rounded-xl border border-white/[0.08] bg-black/20 p-3">
+      <div className="grid grid-cols-[1fr_8.5rem] gap-2">
+        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="What did you make?" className="glass-field" />
+        <input type="date" value={date} max={nyToday()} onChange={(e) => setDate(e.target.value || nyToday())} className="glass-field [color-scheme:dark]" aria-label="Day" />
+      </div>
+
+      {/* ingredients */}
+      <div className="space-y-1.5">
+        {uses.map((u, i) => {
+          const p = byId.get(u.id)!;
+          const tooMuch = (Number(u.amount) || 0) > p.qty + 0.0001;
+          return (
+            <div key={u.id} className="flex items-center gap-2 text-[13px]">
+              <span className="min-w-0 flex-1 truncate">{p.name}</span>
+              <input
+                inputMode="decimal"
+                value={u.amount}
+                onChange={(e) => setUses((us) => us.map((x, j) => (j === i ? { ...x, amount: num(e.target.value) } : x)))}
+                className={clsx("glass-field h-8 w-20 px-2 text-right font-mono", tooMuch && "border-rose-400/60")}
+                aria-label={`Amount of ${p.name}`}
+              />
+              <span className="w-24 text-[11px] text-white/45">
+                {p.unit === "item" ? "pcs" : p.unit}{" "}
+                <button type="button" onClick={() => setUses((us) => us.map((x, j) => (j === i ? { ...x, amount: String(r1(p.qty)) } : x)))} className={clsx("hover:text-white", tooMuch ? "text-rose-300" : "text-white/30")} title="Use all of it">
+                  of {fmtQty(p.qty, p.unit).replace(/ (portions?|g|ml)$/, "")}
+                </button>
+              </span>
+              <button onClick={() => setUses((us) => us.filter((_, j) => j !== i))} className="text-white/30 hover:text-rose-300" aria-label="Remove">
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
+        {unused.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => {
+              const p = byId.get(Number(e.target.value));
+              if (p) setUses((us) => [...us, { id: p.id, amount: defaultAmount(p) }]);
+            }}
+            className="glass-field text-white/60"
+          >
+            <option value="" className="bg-[#1b1726]">
+              + Add an ingredient from the fridge
             </option>
-          ))}
-        </select>
-      )}
-      <div className="flex items-center justify-between gap-3 text-[12.5px]">
-        <span className="flex items-center gap-1.5 text-white/55">
-          Servings
-          <button onClick={() => setServings((s) => Math.max(1, s - 1))} className="rounded-md p-1 hover:bg-white/10" aria-label="Fewer servings">
-            <Minus size={12} />
-          </button>
-          <span className="w-4 text-center font-medium text-white tnum">{servings}</span>
-          <button onClick={() => setServings((s) => Math.min(20, s + 1))} className="rounded-md p-1 hover:bg-white/10" aria-label="More servings">
-            <Plus size={12} />
-          </button>
-        </span>
-        {uses.length > 0 && (
-          <span className="font-mono text-[11.5px] text-white/60">
-            {Math.round(tot.kcal / servings)} kcal · {Math.round(tot.protein / servings)}g protein · {money(tot.cost / servings)}
-            {servings > 1 && " each"}
-          </span>
+            {unused.map((p) => (
+              <option key={p.id} value={p.id} className="bg-[#1b1726]">
+                {p.name} ({fmtQty(p.qty, p.unit)} left)
+              </option>
+            ))}
+          </select>
         )}
       </div>
-      {servings > 1 && <div className="text-[11px] text-white/40">You eat one now. The other {servings - 1} go in the fridge as leftovers.</div>}
+
+      {/* what was eaten, what was kept */}
+      {uses.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-white/[0.06] p-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11.5px] uppercase tracking-[0.08em] text-white/45">Ate and kept</span>
+            <div className="flex gap-0.5 rounded-lg bg-black/30 p-0.5 text-[11.5px]">
+              {(
+                [
+                  ["portions", "Portions"],
+                  ["weight", "By weight"],
+                ] as const
+              ).map(([id, label]) => (
+                <button key={id} type="button" onClick={() => setBy(id)} className={clsx("rounded-md px-2 py-0.5", by === id ? "bg-white/[0.14] text-white" : "text-white/55 hover:text-white")}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {by === "portions" ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] text-white/60">
+              <span className="flex items-center gap-1.5">
+                Made <Stepper value={made} set={setMade} min={0.5} label="portions made" /> portions
+              </span>
+              <span className="flex items-center gap-1.5">
+                ate <Stepper value={ate} set={setAte} min={0} label="portions eaten" /> now
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-1.5 text-[12.5px] text-white/60">
+              <div className="flex items-center gap-2">
+                <span className="w-28">Cooked dish</span>
+                <input inputMode="decimal" value={cooked} onChange={(e) => setCooked(num(e.target.value))} placeholder={tot.weight ? String(Math.round(tot.weight)) : "g"} className="glass-field h-8 w-24 px-2 text-right font-mono" aria-label="Cooked weight in grams" />
+                <span className="text-[11px] text-white/40">g, weighed without the pot</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-28">You ate</span>
+                <input inputMode="decimal" value={ateG} onChange={(e) => setAteG(num(e.target.value))} placeholder="0" className="glass-field h-8 w-24 px-2 text-right font-mono" aria-label="Grams eaten" />
+                <span className="text-[11px] text-white/40">g (0 if it&apos;s all meal prep)</span>
+              </div>
+            </div>
+          )}
+          {leftAmt > 0 && (
+            <div className="flex items-center gap-2 text-[12px] text-white/55">
+              Keep {by === "portions" ? `${r1(leftAmt)} ${leftAmt === 1 ? "portion" : "portions"}` : `${Math.round(leftAmt)} g`} in the
+              <div className="flex gap-0.5 rounded-lg bg-black/30 p-0.5 text-[11.5px]">
+                {(["fridge", "freezer"] as const).map((k) => (
+                  <button key={k} type="button" onClick={() => setKeepIn(k)} className={clsx("rounded-md px-2 py-0.5", keepIn === k ? "bg-white/[0.14] text-white" : "text-white/55 hover:text-white")}>
+                    {PLACE_LABEL[k].toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {over && <div className="text-[12px] text-rose-300">You ate more than you made.</div>}
+        </div>
+      )}
+
+      {uses.length > 0 && total > 0 && !over && (
+        <div className="grid grid-cols-2 gap-2 font-mono text-[11.5px]">
+          <div className="rounded-lg bg-white/[0.05] p-2">
+            <div className="font-sans text-[11px] text-white/45">You ate</div>
+            {Math.round(tot.kcal * share)} kcal · {Math.round(tot.protein * share)}g P · {money(tot.cost * share)}
+          </div>
+          <div className="rounded-lg bg-white/[0.05] p-2">
+            <div className="font-sans text-[11px] text-white/45">{by === "portions" ? "Each portion" : "Per 100 g"}</div>
+            {by === "portions"
+              ? `${Math.round(tot.kcal / total)} kcal · ${Math.round(tot.protein / total)}g P · ${money(tot.cost / total)}`
+              : `${Math.round((tot.kcal / total) * 100)} kcal · ${r1((tot.protein / total) * 100)}g P · ${money((tot.cost / total) * 100)}`}
+          </div>
+        </div>
+      )}
+
       <button
-        disabled={pending || !name.trim() || !uses.length}
-        onClick={() => onSave({ name, servings, uses: uses.map((u) => ({ itemId: u.id, amount: Number(u.amount) || 0 })).filter((u) => u.amount > 0) })}
+        disabled={pending || !valid}
+        onClick={() =>
+          onSave({
+            name,
+            date,
+            keepIn,
+            uses: uses.map((u) => ({ itemId: u.id, amount: Number(u.amount) || 0 })).filter((u) => u.amount > 0),
+            split: by === "portions" ? { by, made: Number(made), ate: Number(ate) || 0 } : { by, cooked: Number(cooked), ate: Number(ateG) || 0 },
+          })
+        }
         className={saveBtn}
       >
-        {pending ? "Saving…" : "Log meal"}
+        {pending ? "Saving…" : share === 0 && total > 0 ? "Save meal prep" : "Log meal"}
       </button>
     </div>
   );

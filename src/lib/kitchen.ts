@@ -82,7 +82,7 @@ export function fmtQty(qty: number, unit: string) {
   if (unit === "g" && n >= 1000) return `${Math.round(n / 100) / 10} kg`;
   if (unit === "ml" && n >= 1000) return `${Math.round(n / 100) / 10} l`;
   if (unit === "item") return `${n}`;
-  if (unit === "serving") return `${n} ${n === 1 ? "serving" : "servings"}`;
+  if (unit === "serving") return `${n} ${n === 1 ? "portion" : "portions"}`;
   return `${n} ${unit}`;
 }
 
