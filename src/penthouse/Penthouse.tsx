@@ -8,7 +8,8 @@ import { useZone, type ZoneId } from "./store";
 import { ZONES, zoneById } from "./zones";
 import type { PenthouseData } from "./data/types";
 import { labelEls } from "./labels";
-import { FitnessPanel, NutritionPanel, ProfessionalPanel, SleepPanel } from "./overlays/panels";
+import { FitnessPanel, ProfessionalPanel, SleepPanel } from "./overlays/panels";
+import { NutritionPanel } from "./overlays/kitchen";
 import { Sheet, openFullView } from "./overlays/Sheet";
 import { innerCanScroll, nudgeRise, onRiseFrame } from "./rise";
 

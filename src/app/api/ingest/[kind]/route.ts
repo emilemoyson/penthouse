@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { todayISO } from "@/lib/dates";
 import { parseWorkoutNote } from "@/lib/parse-workout";
 import { SESSION_KINDS } from "@/lib/exercises";
+import { GroceryItemIn, saveGroceryRun } from "@/lib/groceries";
+import { readReceipt } from "@/lib/receipt";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,9 @@ export const dynamic = "force-dynamic";
  *   todos   { id, title, detail?, due?, sender?, emailId?, threadId?, url? }
  *   workout-text  { text, date? }   a gym note in the docs/gym-template.md format (the iPhone "Log workout" Shortcut).
  *                 Every dated session in it is imported; re-sending replaces what that note sent before for the same day and type.   (re-sending never un-ticks a done item)
+ *   groceries     { date?, store?, total?, extId?, items?: [{ name, qty, unit, price, place?, kcal_per?, ..., barcode? }], text?, image?, mediaType? }
+ *                 One shop into the pantry. Send items (missing macros are looked up by barcode, then estimated),
+ *                 or a receipt photo (base64 image) or typed text for Claude to read. Re-sending the same extId is skipped.
  */
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -70,6 +75,17 @@ const Event = z.object({
   location: z.string().max(200).default(""),
   emailId: z.string().max(200).optional(),
 });
+const Groceries = z.object({
+  date: date.optional(),
+  store: z.string().max(100).optional(),
+  total: z.number().nonnegative().optional(),
+  extId: z.string().max(200).optional(),
+  source: z.string().max(40).optional(),
+  items: z.array(GroceryItemIn).max(200).optional(),
+  text: z.string().max(10_000).optional(),
+  image: z.string().max(12_000_000).optional(),
+  mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]).default("image/jpeg"),
+});
 const WorkoutText = z.object({ text: z.string().min(1).max(50_000), date: date.optional() });
 const Todo = z.object({
   id: z.string().min(1).max(200),
@@ -107,6 +123,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
     return NextResponse.json({ error: "body must be JSON" }, { status: 400 });
   }
   if (kind === "workout-text") return ingestWorkoutText(body);
+  if (kind === "groceries") return ingestGroceries(body);
   const items = Array.isArray(body) ? body : [body];
   if (items.length > 500) return NextResponse.json({ error: "max 500 records per request" }, { status: 413 });
   const sql = await db();
@@ -217,4 +234,33 @@ async function ingestWorkoutText(body: unknown) {
     .filter(Boolean)
     .join("\n");
   return NextResponse.json({ ok: true, kind: "workout-text", sessions: sessions.length, skipped, message });
+}
+
+/** A shop from a script (Lidl Plus sync), a Shortcut (receipt photo) or anything else. */
+async function ingestGroceries(body: unknown) {
+  const parsed = Groceries.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "invalid payload", issues: parsed.error.issues.slice(0, 5) }, { status: 422 });
+  const g = parsed.data;
+  try {
+    const sql = await db();
+    // check before reading, so a re-sent receipt doesn't cost a Claude call
+    if (g.extId && (await sql`select 1 from grocery_runs where ext_id = ${g.extId}`).length) return NextResponse.json({ ok: true, skipped: true, message: "Already saved." });
+    let { items, store, total, date: day } = g;
+    let source = g.source ?? "api";
+    if (!items?.length) {
+      if (!g.text && !g.image) return NextResponse.json({ error: "send items, text or image" }, { status: 422 });
+      const draft = await readReceipt({ text: g.text, image: g.image ? { data: g.image, mediaType: g.mediaType } : undefined });
+      items = draft.items;
+      store ??= draft.store;
+      total ??= draft.total ?? undefined;
+      day ??= draft.date ?? undefined;
+      source = g.source ?? (g.image ? "receipt" : "text");
+    }
+    if (!items.length) return NextResponse.json({ ok: false, message: "No food found." }, { status: 422 });
+    const saved = await saveGroceryRun(sql, { date: day ?? todayISO(), store: store ?? "", total, source, extId: g.extId, items });
+    if (!saved) return NextResponse.json({ ok: true, skipped: true, message: "Already saved." });
+    return NextResponse.json({ ok: true, id: saved.id, message: `Saved ${saved.items} items${store ? ` from ${store}` : ""}.` });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 500 });
+  }
 }

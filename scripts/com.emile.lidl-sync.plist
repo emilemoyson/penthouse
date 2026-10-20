@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Imports new Lidl Plus receipts at 9:00, 13:00, 17:00, 20:00 and 22:30.
+  Needs the site to be reachable at INGEST_URL (scripts/.env); a run that can't reach it just tries again next time.
+  Install:   cp scripts/com.emile.lidl-sync.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.emile.lidl-sync.plist
+  Remove:    launchctl unload ~/Library/LaunchAgents/com.emile.lidl-sync.plist
+  Log:       ~/Library/Logs/lidl-sync.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.emile.lidl-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/emilemoyson/Documents/penthouse/scripts/.venv-lidl/bin/python</string>
+    <string>-W</string><string>ignore</string>
+    <string>/Users/emilemoyson/Documents/penthouse/scripts/lidl_sync.py</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>13</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>20</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>22</integer><key>Minute</key><integer>30</integer></dict>
+  </array>
+  <key>StandardOutPath</key><string>/Users/emilemoyson/Library/Logs/lidl-sync.log</string>
+  <key>StandardErrorPath</key><string>/Users/emilemoyson/Library/Logs/lidl-sync.log</string>
+</dict>
+</plist>

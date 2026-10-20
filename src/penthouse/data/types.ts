@@ -60,7 +60,24 @@ export type FitnessData = {
   topLifts: { name: string; top: string; change: number | null; status: string }[];
 };
 
-export type Meal = { id: number; date: string; time: string; name: string; kcal: number; protein: number; carbs: number; fat: number };
+export type Meal = { id: number; date: string; time: string; name: string; kcal: number; protein: number; carbs: number; fat: number; cost: number | null; kind: "home" | "out" };
+export type PantryItem = {
+  id: number;
+  name: string;
+  place: "fridge" | "freezer" | "pantry";
+  qty: number; // left, in unit
+  qty_start: number;
+  unit: "g" | "ml" | "item" | "serving";
+  price: number; // paid for qty_start
+  kcal_per: number; // per 100 g/ml, or per item/serving
+  protein_per: number;
+  carbs_per: number;
+  fat_per: number;
+  bought: string;
+  use_by: string | null;
+  daysLeft: number;
+};
+export type GroceryRun = { id: number; date: string; store: string; total: number; items: number; source: string };
 export type NutritionData = {
   source: Source;
   updatedAt: string;
@@ -68,7 +85,12 @@ export type NutritionData = {
   meals: Meal[];
   totals: { kcal: number; protein: number; carbs: number; fat: number };
   targets: { kcal: number; protein: number; carbs: number; fat: number };
-  week: { date: string; kcal: number }[];
+  week: { date: string; kcal: number; protein: number }[];
+  pantry: PantryItem[]; // open items, use-soon first
+  spend: { week: number; groceries: number; out: number; days: { date: string; groceries: number; out: number }[] }; // last 7 days
+  costToday: number; // food eaten today with a known cost
+  proteinPerDollar: number | null; // last 7 days, meals with a known cost
+  receipts: boolean; // ANTHROPIC_API_KEY is set, so photo and typed input work
 };
 
 export type PenthouseData = {

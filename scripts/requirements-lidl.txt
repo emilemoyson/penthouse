@@ -1,0 +1,6 @@
+# separate venv (scripts/.venv-lidl): its dependencies clash with myfitnesspal pins
+lidl-plus[auth]>=0.3.5
+# selenium-wire breaks with blinker 1.8+ (blinker._saferef was removed)
+blinker==1.7.0
+# selenium-wire uses X509.get_extension, removed in newer pyOpenSSL
+pyopenssl==24.2.1

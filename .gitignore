@@ -43,3 +43,4 @@ next-env.d.ts
 
 # MyFitnessPal sync venv
 scripts/.venv/
+scripts/.venv-lidl/

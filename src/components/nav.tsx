@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { Dumbbell, Briefcase, CircleCheckBig, LogOut, Building2 } from "lucide-react";
+import { Dumbbell, Briefcase, CircleCheckBig, LogOut, Building2, ChefHat } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { logout } from "@/app/login/actions";
 
 const ITEMS = [
   { href: "/training", label: "Training", icon: Dumbbell },
+  { href: "/kitchen", label: "Kitchen", icon: ChefHat },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/habits", label: "Habits", icon: CircleCheckBig },
 ];
@@ -88,7 +89,7 @@ export function MobileTop() {
 export function MobileTabs() {
   const path = usePathname();
   return (
-    <nav data-app-nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+    <nav data-app-nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
       {ITEMS.map(({ href, label, icon: Icon }) => {
         const on = path.startsWith(href);
         return (

@@ -6,15 +6,17 @@
  *   sleep        → sleep_logs table   ← POST /api/ingest/sleep   (Garmin/garth script, Oura, WHOOP, Apple Health export)
  *   professional → Google Sheet (jobs) + email_summaries ← POST /api/ingest/emails + events table (calendar)
  *   fitness      → workouts / sets / runs tables (Training tab, later Strava)
- *   nutrition    → meals table        ← kitchen panel form or POST /api/ingest/meals
+ *   nutrition    → meals, pantry_items, grocery_runs ← kitchen panel or POST /api/ingest/{meals,groceries}
  */
 import { db, getKV } from "@/lib/db";
 import { addDays, daysBetween, fShort, lastNDays, mondayOf, todayISO } from "@/lib/dates";
 import { loadTraining, fmtW } from "@/lib/training";
 import { exerciseSummaries, setsPerMuscle } from "@/lib/coach";
 import { loadJobs, jobAnalytics } from "@/lib/jobs";
-import { sampleEmails, sampleKcalWeek, sampleMeals, sampleSleep } from "./samples";
-import type { CalendarItem, FitnessData, NutritionData, PenthouseData, ProfessionalData, SleepData, SleepNight } from "./types";
+import { sampleEmails, sampleKcalWeek, sampleMeals, samplePantry, sampleSleep, sampleSpend } from "./samples";
+import { daysLeft, USE_SOON_DAYS } from "@/lib/kitchen";
+import { receiptEnabled } from "@/lib/receipt";
+import type { CalendarItem, FitnessData, Meal, NutritionData, PantryItem, PenthouseData, ProfessionalData, SleepData, SleepNight } from "./types";
 
 const now = () => new Date().toISOString();
 
@@ -250,10 +252,13 @@ export const DEFAULT_TARGETS = { kcal: 2700, protein: 170, carbs: 320, fat: 85 }
 
 export async function getNutritionData(today = todayISO()): Promise<NutritionData> {
   const targets = { ...DEFAULT_TARGETS, ...(await getKV<Partial<typeof DEFAULT_TARGETS>>("nutrition_targets", {})) };
+  const receipts = receiptEnabled();
   const sql = await db();
-  const [{ n }] = await sql<{ n: number }[]>`select count(*)::int as n from meals`;
-  if (n === 0) {
+  const [{ n }] = await sql<{ n: number }[]>`
+    select (select count(*) from meals) + (select count(*) from pantry_items) + (select count(*) from grocery_runs) as n`;
+  if (Number(n) === 0) {
     const meals = sampleMeals(today);
+    const spend = sampleSpend(today);
     return {
       source: "sample",
       updatedAt: now(),
@@ -262,24 +267,60 @@ export async function getNutritionData(today = todayISO()): Promise<NutritionDat
       totals: sum(meals),
       targets,
       week: sampleKcalWeek(today),
+      pantry: samplePantry(today),
+      spend,
+      costToday: meals.reduce((a, m) => a + (m.cost ?? 0), 0),
+      proteinPerDollar: 9.4,
+      receipts,
     };
   }
-  const all = await sql<{ id: number; date: string; time: string; name: string; kcal: number; protein: number; carbs: number; fat: number; source: string }[]>`
-    select id, date, time, name, kcal, protein, carbs, fat, source from meals where date >= ${addDays(today, -6)} order by date, time, id`;
+  const from = addDays(today, -6);
+  const [all, pantryRows, runs] = await Promise.all([
+    sql<(Omit<Meal, "kind"> & { kind: string; source: string })[]>`
+      select id, date, time, name, kcal, protein, carbs, fat, cost, kind, source from meals where date >= ${from} order by date, time, id`,
+    sql<Omit<PantryItem, "daysLeft">[]>`
+      select id, name, place, qty, qty_start, unit, price, kcal_per, protein_per, carbs_per, fat_per, bought, use_by
+      from pantry_items where finished_at is null order by name`,
+    sql<{ date: string; total: number }[]>`select date, total from grocery_runs where date >= ${from}`,
+  ]);
   // a day synced from MyFitnessPal is complete on its own, so skip hand-logged rows that day to avoid double counting
   const mfpDays = new Set(all.filter((r) => r.source === "mfp").map((r) => r.date));
-  const rows = all.filter((r) => !mfpDays.has(r.date) || r.source === "mfp");
+  const rows = all.filter((r) => !mfpDays.has(r.date) || r.source === "mfp").map((r) => ({ id: r.id, date: r.date, time: r.time, name: r.name, kcal: r.kcal, protein: r.protein, carbs: r.carbs, fat: r.fat, cost: r.cost, kind: r.kind === "out" ? ("out" as const) : ("home" as const) }));
   const meals = rows.filter((r) => r.date === today);
-  const byDay = new Map<string, number>();
-  for (const r of rows) byDay.set(r.date, (byDay.get(r.date) || 0) + r.kcal);
+  const days = lastNDays(7, today);
+  const byDay = new Map(days.map((d) => [d, { kcal: 0, protein: 0, groceries: 0, out: 0 }]));
+  for (const r of rows) {
+    const d = byDay.get(r.date);
+    if (!d) continue;
+    d.kcal += r.kcal;
+    d.protein += r.protein;
+    if (r.kind === "out") d.out += r.cost ?? 0;
+  }
+  for (const r of runs) {
+    const d = byDay.get(r.date);
+    if (d) d.groceries += r.total;
+  }
+  const costed = rows.filter((r) => (r.cost ?? 0) > 0);
+  const costSum = costed.reduce((a, r) => a + (r.cost ?? 0), 0);
+  const spendDays = days.map((date) => ({ date, groceries: byDay.get(date)!.groceries, out: byDay.get(date)!.out }));
+  const groceries = spendDays.reduce((a, d) => a + d.groceries, 0);
+  const out = spendDays.reduce((a, d) => a + d.out, 0);
+  const pantry = pantryRows
+    .map((p) => ({ ...p, daysLeft: daysLeft(p, today) }))
+    .sort((a, b) => Number(b.daysLeft <= USE_SOON_DAYS) - Number(a.daysLeft <= USE_SOON_DAYS) || (a.daysLeft <= USE_SOON_DAYS ? a.daysLeft - b.daysLeft : 0) || a.name.localeCompare(b.name));
   return {
     source: "live",
     updatedAt: now(),
     date: today,
-    meals: [...meals],
+    meals,
     totals: sum(meals),
     targets,
-    week: lastNDays(7, today).map((d) => ({ date: d, kcal: byDay.get(d) || 0 })),
+    week: days.map((d) => ({ date: d, kcal: byDay.get(d)!.kcal, protein: Math.round(byDay.get(d)!.protein) })),
+    pantry,
+    spend: { week: groceries + out, groceries, out, days: spendDays },
+    costToday: meals.reduce((a, m) => a + (m.cost ?? 0), 0),
+    proteinPerDollar: costSum > 0 ? costed.reduce((a, r) => a + r.protein, 0) / costSum : null,
+    receipts,
   };
 }
 

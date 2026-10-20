@@ -2,15 +2,15 @@
 
 import { useMemo, useState, useTransition } from "react";
 import clsx from "clsx";
-import { ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Inbox, ListTodo, Plus, RefreshCw, Table2, Trash2, X } from "lucide-react";
-import type { FitnessData, NutritionData, ProfessionalData, SleepData, Source } from "../data/types";
-import { useFitnessData, useNutritionData, useProfessionalData, useSleepData } from "../data/hooks";
-import { addMeal, deleteMeal, toggleTodo } from "../data/actions";
+import { ArrowUpRight, CalendarDays, Check, ChevronLeft, ChevronRight, Inbox, ListTodo, RefreshCw, Table2 } from "lucide-react";
+import type { FitnessData, ProfessionalData, SleepData, Source } from "../data/types";
+import { useFitnessData, useProfessionalData, useSleepData } from "../data/hooks";
+import { toggleTodo } from "../data/actions";
 import { Bar, Columns, GlassCard, Metric, Pill, Ring } from "./glass";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const short = (s: string | null) => (s ? `${MON[Number(s.slice(5, 7)) - 1]} ${Number(s.slice(8, 10))}` : "–");
-const dow = (s: string) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(s + "T12:00:00Z").getUTCDay()];
+export const dow = (s: string) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(s + "T12:00:00Z").getUTCDay()];
 const nyToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
 const plusDays = (iso: string, n: number) => {
   const d = new Date(iso + "T12:00:00Z");
@@ -23,7 +23,7 @@ const hm = (min: number) => `${Math.floor(min / 60)}h ${String(Math.round(min % 
 /* shared                                                                  */
 /* ---------------------------------------------------------------------- */
 
-function SourceBar({ source, hint, loading, onRefresh }: { source: Source; hint: string; loading: boolean; onRefresh: () => void }) {
+export function SourceBar({ source, hint, loading, onRefresh }: { source: Source; hint: string; loading: boolean; onRefresh: () => void }) {
   return (
     <div className="flex items-center justify-between gap-2">
       {source === "live" ? (
@@ -46,7 +46,7 @@ function SourceBar({ source, hint, loading, onRefresh }: { source: Source; hint:
   );
 }
 
-function Tabs<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: { id: T; label: string; icon: typeof Table2 }[] }) {
+export function Tabs<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: { id: T; label: string; icon: typeof Table2 }[] }) {
   return (
     <div className="flex gap-1 rounded-xl border border-white/[0.08] bg-black/20 p-1">
       {items.map((t) => (
@@ -468,149 +468,6 @@ export function FitnessPanel({ initial }: { initial: FitnessData }) {
           </ul>
         </GlassCard>
       )}
-    </div>
-  );
-}
-
-/* ====================================================================== */
-/* 🍳 Kitchen Lab → useNutritionData                                       */
-/* ====================================================================== */
-
-const MACROS = [
-  { k: "protein", label: "Protein", color: "#3987e5" },
-  { k: "carbs", label: "Carbs", color: "#d95926" },
-  { k: "fat", label: "Fats", color: "#199e70" },
-] as const;
-
-export function NutritionPanel({ initial }: { initial: NutritionData }) {
-  const { data, loading, refresh, setData } = useNutritionData(initial);
-  const [open, setOpen] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [pending, start] = useTransition();
-  const [form, setForm] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "" });
-  const t = data.totals;
-  const left = data.targets.kcal - t.kcal;
-  const visible = open ? data.meals : data.meals.slice(-3);
-
-  const submit = () => {
-    if (!form.name.trim() || !form.kcal) return;
-    start(async () => {
-      const next = await addMeal({ name: form.name, kcal: Number(form.kcal), protein: Number(form.protein || 0), carbs: Number(form.carbs || 0), fat: Number(form.fat || 0) });
-      setData(next);
-      setForm({ name: "", kcal: "", protein: "", carbs: "", fat: "" });
-      setAdding(false);
-      setOpen(true);
-    });
-  };
-
-  return (
-    <div className="space-y-3">
-      <SourceBar source={data.source} hint="log your first meal below" loading={loading || pending} onRefresh={refresh} />
-      <div className="grid grid-cols-[auto_1fr] items-center gap-5 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
-        <Ring value={t.kcal / data.targets.kcal} color="#ffcb6b" size={118}>
-          <div>
-            <div className="text-[24px] font-semibold leading-none tnum">{t.kcal.toLocaleString()}</div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/50">of {data.targets.kcal.toLocaleString()} kcal</div>
-          </div>
-        </Ring>
-        <div>
-          <div className="text-[12px] text-white/50">{left >= 0 ? "Left today" : "Over target"}</div>
-          <div className="text-[28px] font-semibold tracking-tight tnum">
-            {Math.abs(left).toLocaleString()} <span className="text-[14px] font-normal text-white/45">kcal</span>
-          </div>
-          <div className="mt-1 text-[12px] text-white/50">{data.meals.length} meals logged</div>
-        </div>
-      </div>
-
-      {/* macro grid */}
-      <div className="grid grid-cols-3 gap-2">
-        {MACROS.map((m) => {
-          const v = Math.round(t[m.k]);
-          const target = data.targets[m.k];
-          return (
-            <div key={m.k} className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3">
-              <div className="flex items-center gap-1.5 text-[11.5px] text-white/55">
-                <span className="size-2 rounded-[2px]" style={{ background: m.color }} />
-                {m.label}
-              </div>
-              <div className="mt-1 text-[22px] font-semibold leading-none tnum">
-                {v}
-                <span className="ml-0.5 text-[12px] font-normal text-white/40">/ {target}g</span>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
-                <div className="h-full rounded-full" style={{ width: `${Math.min(100, (v / target) * 100)}%`, background: m.color, boxShadow: `0 0 10px ${m.color}aa` }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* meal log */}
-      <GlassCard
-        title="Meal log"
-        right={
-          <button onClick={() => setAdding((a) => !a)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-white/70 hover:bg-white/10 hover:text-white">
-            {adding ? <X size={13} /> : <Plus size={13} />} {adding ? "Cancel" : "Add meal"}
-          </button>
-        }
-      >
-        {adding && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              submit();
-            }}
-            className="mb-3 grid grid-cols-4 gap-2"
-          >
-            <input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="What did you eat?" className="glass-field col-span-4" />
-            {(["kcal", "protein", "carbs", "fat"] as const).map((k) => (
-              <input
-                key={k}
-                inputMode="numeric"
-                value={form[k]}
-                onChange={(e) => setForm({ ...form, [k]: e.target.value.replace(/[^\d.]/g, "") })}
-                placeholder={k === "kcal" ? "kcal" : `${k[0].toUpperCase()}${k.slice(1)} g`}
-                className="glass-field font-mono"
-              />
-            ))}
-            <button disabled={pending || !form.name.trim() || !form.kcal} className="col-span-4 h-9 rounded-lg bg-white/90 text-[13px] font-medium text-black transition hover:bg-white disabled:opacity-40">
-              {pending ? "Saving…" : "Log meal"}
-            </button>
-          </form>
-        )}
-        <ul className="divide-y divide-white/[0.06]">
-          {visible.map((m) => (
-            <li key={m.id} className="group flex items-center gap-3 py-2 text-[13px]">
-              <span className="w-11 font-mono text-[11.5px] text-white/40">{m.time || "–"}</span>
-              <span className="min-w-0 flex-1 truncate">{m.name}</span>
-              <span className="hidden font-mono text-[11px] text-white/45 sm:inline">
-                P{Math.round(m.protein)} C{Math.round(m.carbs)} F{Math.round(m.fat)}
-              </span>
-              <span className="w-16 text-right font-medium tnum">{m.kcal}</span>
-              {data.source === "live" && (
-                <button
-                  onClick={() => start(async () => setData(await deleteMeal(m.id)))}
-                  className="text-white/25 opacity-0 transition group-hover:opacity-100 hover:text-rose-300"
-                  aria-label={`Delete ${m.name}`}
-                >
-                  <Trash2 size={13} />
-                </button>
-              )}
-            </li>
-          ))}
-          {!data.meals.length && <li className="py-2 text-[13px] text-white/45">Nothing logged today.</li>}
-        </ul>
-        {data.meals.length > 3 && (
-          <button onClick={() => setOpen((o) => !o)} className="mt-1 inline-flex items-center gap-1 text-[12px] text-white/50 hover:text-white">
-            <ChevronDown size={13} className={clsx("transition", open && "rotate-180")} />
-            {open ? "Show less" : `Show all ${data.meals.length}`}
-          </button>
-        )}
-      </GlassCard>
-
-      <GlassCard title="Calories, last 7 days" right={<span className="text-[11px] text-white/40">target {data.targets.kcal}</span>}>
-        <Columns values={data.week.map((w) => w.kcal)} labels={data.week.map((w) => dow(w.date))} color="#ffcb6b" target={data.targets.kcal} format={(v) => `${v} kcal`} />
-      </GlassCard>
     </div>
   );
 }

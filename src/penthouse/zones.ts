@@ -95,13 +95,13 @@ export const ZONES: ZoneDef[] = [
     labelY: 2.9,
     label: "Kitchen",
     title: "Diet & Nutrition",
-    subtitle: "Calories, macros and meals",
+    subtitle: "Fridge, meals, protein and spending",
     key: "4",
     anchor: [5.4, 0, 2.5],
     camera: { position: [1.4, 3.3, 8.2], target: [5.9, 0.95, 2.3] },
     fov: 34,
     color: "#23b58a",
-    href: "/habits",
+    href: "/kitchen",
   },
 ];
 

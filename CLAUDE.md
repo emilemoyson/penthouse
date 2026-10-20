@@ -1,6 +1,6 @@
 # Emile's Hub
 
-Private personal dashboard. Home page is a 3D cosy apartment at night (React Three Fiber) with four clickable rooms that open glass panels with live data. Classic tabs (Training, Jobs, Habits) live under `src/app/(app)`.
+Private personal dashboard. Home page is a 3D cosy apartment at night (React Three Fiber) with four clickable rooms that open glass panels with live data. Classic tabs (Training, Kitchen, Jobs, Habits) live under `src/app/(app)`.
 
 ## Stack
 
@@ -30,6 +30,7 @@ Check before committing: `npx tsc --noEmit` and `npm run build`.
 | `DATABASE_URL` | Postgres |
 | `JOBS_SHEET_URL`, `JOBS_SHEET_TOKEN` | Apps Script web app over the "Job Search 2027" Google Sheet (`apps-script/JobsFeed.gs`) |
 | `INGEST_TOKEN` | Bearer token for `POST /api/ingest/:kind` |
+| `ANTHROPIC_API_KEY` | Claude API: reads receipt photos and typed grocery lists, estimates macros (`src/lib/receipt.ts`). Optional |
 
 Never commit `.env.local`.
 
@@ -48,8 +49,11 @@ Never commit `.env.local`.
 ## Data
 
 - `src/penthouse/data/server.ts` loads each panel (DB + jobs sheet) with labelled sample fallbacks; `hooks.ts` refreshes via `GET /api/penthouse/:zone` (sleep, professional, fitness, nutrition).
-- `POST /api/ingest/:kind` (sleep, meals, emails, events, todos, workout-text) with `Authorization: Bearer $INGEST_TOKEN`. Validated with zod, idempotent upserts. Examples in README.
+- `POST /api/ingest/:kind` (sleep, meals, groceries, emails, events, todos, workout-text) with `Authorization: Bearer $INGEST_TOKEN`. Validated with zod, idempotent upserts. Examples in README.
 - Gym notes: `src/lib/parse-workout.ts` reads the `docs/gym-template.md` format. Shortcut imports are `workouts.source = 'shortcut'` and are replaced per (date, kind) on re-send.
+- Kitchen: shop → fridge → cook → meal. `grocery_runs` and `pantry_items` (amounts in g, ml, item or serving; macros per 100 g/ml or per item/serving; `price` is for `qty_start`). Shared math in `src/lib/kitchen.ts` (client-safe). `src/lib/groceries.ts` saves a shop and fills missing macros: Open Food Facts by barcode first (only when the package size is known), then one Claude call. `cookMeal` in `src/penthouse/data/actions.ts` logs one serving with cost and keeps extra servings as a leftovers item. `meals.cost` and `meals.kind` (home | out) drive the spending numbers. Panel UI is `src/penthouse/overlays/kitchen.tsx`; full page is `/kitchen`. Deleting a meal does not put the food back in the fridge.
+- Receipts: `src/lib/receipt.ts` uses `claude-opus-5-5` with structured output (`betaZodOutputFormat`), effort low, server-side fallbacks on. The panel shrinks photos to about 1800px JPEG before the server action (`next.config.ts` allows 6 MB bodies).
+- Lidl Plus: `scripts/lidl_sync.py` in its own venv `scripts/.venv-lidl` (its dependencies clash with the myfitnesspal pins). Login is `scripts/lidl_login.py`: a visible Chrome window where Emile logs in by hand (Lidl's 2026 login page has a captcha, so the package's `lidl-plus auth` automation no longer works); it catches the `com.lidlplus.app://callback?code=` redirect and saves `LIDL_REFRESH_TOKEN`. selenium-wire needs `blinker==1.7.0` and `pyopenssl==24.2.1` (pinned in `scripts/requirements-lidl.txt`). Uses the unofficial `lidl-plus` package for the token and the receipt list, then fetches the v3 printed receipt (HTML) itself because the package's `ticket()` is broken since Lidl's 2024 API change. Works with Emile's US account (tested 2026-10-19). Send only `Authorization` and a 2-letter `Accept-Language: en`: the package's fake `App-Version: 999.99.9` headers make Akamai stall every request, and the v3 receipt call 400s on `en-US`. The receipt is cut before the payment block (card data never leaves the Mac), food lines are parsed locally (`F`/`FT` flag = food, `T` = non-food, discounts and `lb @` weights handled), and the run total is the food lines only. Sent as items with `extId = lidl:<id>`; the endpoint skips known ids before calling Claude. The refresh token is renewed and saved before fetching, in case Lidl rotates it.
 - MyFitnessPal: `scripts/mfp_sync.py` (Python venv in `scripts/.venv`, env in `scripts/.env`). Days with `source = 'mfp'` meals ignore manual rows in the kitchen panel.
 - The rise (`src/penthouse/rise.ts`): in a focused room, scrolling anywhere drives one 0 to 1 value. `CameraRig` eases it each frame and cranes the camera from the zone pose into the sky, `scene/NightSky.tsx` fades a star dome in, the panel fades out, and `overlays/Sheet.tsx` slides the room's page (`zones.ts` `href`) up in a same-origin iframe. Letting go part-way snaps to the nearer end; scrolling up at the top of the page, Esc or a click on the sky goes back down. In a frame, the root layout's script adds `html.embedded`, which hides `[data-app-nav]` and the page background (`globals.css`). Intercepting routes were tried and dropped: Next 15 throws "initialTree is not iterable" because the target pages live in the `(app)` group with their own layout.
 
@@ -76,3 +80,4 @@ Status on 2026-10-18: everything works locally (`npm run dev`, password in `.env
 4. Paste `automation/morning-inbox.md` (with the site URL and token) into the Claude Desktop morning task and run it once.
 5. Emile has more tweaks in mind for the scroll-into-the-sky full view (`src/penthouse/rise.ts`); ask what they are.
 6. Later: Strava / Garmin import for runs and sleep.
+7. Kitchen (built 2026-10-19): `ANTHROPIC_API_KEY` is in `.env.local` and works (also add it on Vercel). The first Lidl receipt (Oct 19, $32.69 of food) is imported. The Lidl sync runs at 9:00, 13:00, 17:00, 20:00 and 22:30 via `~/Library/LaunchAgents/com.emile.lidl-sync.plist` (log `~/Library/Logs/lidl-sync.log`); it only imports while the site is reachable at `scripts/.env` `INGEST_URL` (localhost until deploy) and looks back 14 days, so missed runs catch up. Still to test by hand: a receipt photo and a typed list in the panel.

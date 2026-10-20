@@ -162,6 +162,44 @@ alter table events add column if not exists email_id text;
 alter table email_summaries add column if not exists url text;
 alter table todos add column if not exists url text;
 
+-- ---------- kitchen: grocery runs, pantry, meal cost ----------
+create table if not exists grocery_runs (
+  id serial primary key,
+  date text not null,
+  store text not null default '',
+  total double precision not null default 0,     -- what was paid, incl. tax
+  source text not null default 'manual',         -- manual | receipt | text | api
+  created_at timestamptz not null default now()
+);
+create index if not exists grocery_runs_date_idx on grocery_runs(date);
+
+create table if not exists pantry_items (
+  id serial primary key,
+  run_id integer references grocery_runs(id) on delete set null,
+  name text not null,
+  place text not null default 'fridge',          -- fridge | freezer | pantry
+  qty double precision not null default 1,       -- amount left, in unit
+  qty_start double precision not null default 1,
+  unit text not null default 'item',             -- g | ml | item | serving
+  price double precision not null default 0,     -- paid for qty_start
+  kcal_per double precision not null default 0,  -- per 100 g/ml, or per item/serving
+  protein_per double precision not null default 0,
+  carbs_per double precision not null default 0,
+  fat_per double precision not null default 0,
+  bought text not null,                          -- YYYY-MM-DD
+  use_by text,                                   -- YYYY-MM-DD, optional
+  finished_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists pantry_open_idx on pantry_items(finished_at);
+
+alter table grocery_runs add column if not exists ext_id text;               -- e.g. Lidl Plus receipt id, so re-syncing is safe
+create unique index if not exists grocery_runs_ext_idx on grocery_runs(ext_id);
+alter table pantry_items add column if not exists barcode text;
+
+alter table meals add column if not exists cost double precision;           -- null = unknown
+alter table meals add column if not exists kind text not null default 'home'; -- home | out
+
 create table if not exists kv (
   key text primary key,
   value jsonb not null,
