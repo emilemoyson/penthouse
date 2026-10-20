@@ -125,7 +125,9 @@ export async function updatePantryItem(id: number, patch: z.input<typeof PantryP
   if (p.name != null) await sql`update pantry_items set name = ${p.name} where id = ${id}`;
   if (p.place != null) await sql`update pantry_items set place = ${p.place} where id = ${id}`;
   if (p.use_by !== undefined) await sql`update pantry_items set use_by = ${p.use_by ?? null} where id = ${id}`;
-  if (p.qty != null) await sql`update pantry_items set qty = ${p.qty}, finished_at = ${p.qty <= 0 ? new Date() : null} where id = ${id}`;
+  // more than was bought means the package size was guessed wrong: the price then covers the new amount
+  if (p.qty != null)
+    await sql`update pantry_items set qty = ${p.qty}, qty_start = greatest(qty_start, ${p.qty}), finished_at = ${p.qty <= 0 ? new Date() : null} where id = ${id}`;
   revalidatePath("/");
   revalidatePath("/kitchen");
   return getNutritionData();
