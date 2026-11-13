@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "penthouse": {
+      "type": "stdio",
+      "command": "mcp/.venv/bin/penthouse-mcp",
+      "args": []
+    }
+  }
+}

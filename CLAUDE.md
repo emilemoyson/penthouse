@@ -21,6 +21,7 @@ Where things stand and what's next: `docs/STATUS.md`. Update it when a topic is 
 | `src/app/(app)/` | Classic pages; `src/app/api/ingest/[kind]` takes data from Shortcuts and scripts |
 | `src/lib/` | db, auth, parsers, kitchen math, receipt reading |
 | `scripts/` | Python syncs for Lidl Plus and MyFitnessPal, launchd jobs (own CLAUDE.md) |
+| `mcp/` | Penthouse MCP server (Python, `mcp` SDK 2.x): read-only role for reads, `/api/ingest` for writes. Venv `mcp/.venv` (Python 3.12), tests `mcp/.venv/bin/pytest mcp` against `hub_test`. See `mcp/README.md` |
 | `apps-script/JobsFeed.gs` | Google Sheet feed for the Jobs tab |
 | `automation/calendar-agent.md` | Prompt for the hourly email task: Gmail + Outlook → Google Calendar, and to-dos read from every email |
 | `automation/morning-inbox.md` | Prompt for the morning Gmail summaries task |

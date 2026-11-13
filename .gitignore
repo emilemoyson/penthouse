@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-prod/
 /out/
 
 # production
@@ -48,3 +49,9 @@ scripts/.venv-lidl/
 # Claude Code: personal overrides and the tsc stamp
 .claude/settings.local.json
 .claude/.last-tsc
+
+# Penthouse MCP server
+mcp/.venv/
+mcp/**/__pycache__/
+mcp/*.egg-info/
+mcp/.pytest_cache/

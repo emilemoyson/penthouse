@@ -89,6 +89,12 @@ Where each source comes from:
 
 Panels read `GET /api/penthouse/:zone` (sleep, professional, fitness, nutrition) and refresh on an interval and on tab focus. Anything not connected yet is shown with a "Sample data" badge.
 
+## Ask Claude about it (MCP server)
+
+`mcp/` is a Python MCP server for the Kitchen and Gym data: pantry, meals, spending, workouts, "what can I cook", a weekly summary, and a receipt import that cuts card data before anything leaves the Mac. It reads through a read-only Postgres role and writes only through `/api/ingest`. It is registered for Claude Code in `.mcp.json`, so starting `claude` in the repo root picks it up.
+
+Setup, the 3 example conversations, tests and known limits: [mcp/README.md](mcp/README.md).
+
 ## Later
 
 - **Strava / Garmin**: runs already have a `source` column. A Strava sync can write rows with `source = 'strava'`; Garmin is easiest via its Strava sync.

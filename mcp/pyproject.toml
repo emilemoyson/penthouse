@@ -1,0 +1,27 @@
+[project]
+name = "penthouse-mcp"
+version = "0.1.0"
+description = "MCP server for the Penthouse dashboard: kitchen and gym data, receipt import"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp[cli]>=2.3,<3",
+  "psycopg[binary]>=3.2",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "anyio>=4"]
+
+[project.scripts]
+penthouse-mcp = "penthouse_mcp.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["penthouse_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::mcp.shared.exceptions.MCPDeprecationWarning"]
