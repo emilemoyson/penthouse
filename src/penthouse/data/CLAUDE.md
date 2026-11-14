@@ -2,7 +2,7 @@
 
 - `server.ts` loads each panel (DB). Each payload has `source`: live, partial or sample, and falls back to labelled samples from `samples.ts` when there's no data. `hooks.ts` refreshes via `GET /api/penthouse/:zone` (sleep, professional, fitness, nutrition).
 - `actions.ts` holds the server actions; each returns the refreshed panel data.
-- `POST /api/ingest/:kind` (`src/app/api/ingest/[kind]/route.ts`): sleep, meals, groceries, emails, events, todos, workout-text, gym-note. Bearer `INGEST_TOKEN`, zod-validated, idempotent upserts. Examples in README.
+- `POST /api/ingest/:kind` (`src/app/api/ingest/[kind]/route.ts`): sleep, meals, groceries, emails (kept, no panel reads it), events, todos, workout-text, gym-note. Bearer `INGEST_TOKEN`, zod-validated, idempotent upserts. Examples in README.
 
 ## Gym
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import clsx from "clsx";
-import { ArrowUpRight, CalendarDays, Check, ChevronLeft, ChevronRight, Inbox, ListTodo, RefreshCw, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Check, ChevronLeft, ChevronRight, ListTodo, RefreshCw, type LucideIcon } from "lucide-react";
 import type { FitnessData, ProfessionalData, SleepData, Source } from "../data/types";
 import { useFitnessData, useProfessionalData, useSleepData } from "../data/hooks";
 import { toggleTodo } from "../data/actions";
@@ -144,103 +144,122 @@ export function SleepPanel({ initial }: { initial: SleepData }) {
 
 export function ProfessionalPanel({ initial }: { initial: ProfessionalData }) {
   const { data, loading, refresh, setData } = useProfessionalData(initial);
-  const [tab, setTab] = useState<"todo" | "inbox" | "calendar">("todo");
+  const [tab, setTab] = useState<"todo" | "calendar">("todo");
   const openTodos = data.todos.items.filter((t) => !t.done).length;
   return (
     <div className="space-y-3">
-      <SourceBar source={data.source} hint="inbox job not connected" loading={loading} onRefresh={refresh} />
+      <SourceBar source={data.source} hint="calendar or to-dos not connected" loading={loading} onRefresh={refresh} />
       <Tabs
         value={tab}
         onChange={setTab}
         items={[
           { id: "todo", label: `To-do${openTodos ? ` · ${openTodos}` : ""}`, icon: ListTodo },
-          { id: "inbox", label: "Inbox", icon: Inbox },
           { id: "calendar", label: "Calendar", icon: CalendarDays },
         ]}
       />
       {tab === "todo" && <TodoList items={data.todos.items} onChange={setData} />}
-      {tab === "inbox" && (
-        <div className="space-y-2">
-          {data.emails.source !== "live" && <p className="text-[11.5px] text-white/40">Placeholder rows. Summaries appear here once the inbox job posts to /api/ingest/emails.</p>}
-          <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
-            {data.emails.items.map((e) => (
-              <div key={e.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-[13px] font-medium">{e.sender}</span>
-                  <span className="flex shrink-0 items-center gap-1.5">
-                    <Pill tone={e.tag === "Action" ? "warn" : e.tag === "Job" ? "accent" : "neutral"}>{e.tag}</Pill>
-                    <span className="text-[11px] text-white/35 tnum">{short(e.receivedAt.slice(0, 10))}</span>
-                  </span>
-                </div>
-                <div className="mt-0.5 flex items-center justify-between gap-2">
-                  <span className="truncate text-[12px] text-white/45">{e.subject}</span>
-                  {e.url && (
-                    <a
-                      href={e.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] text-sky-300/80 transition hover:bg-white/10 hover:text-sky-200"
-                    >
-                      Open <ArrowUpRight size={11} />
-                    </a>
-                  )}
-                </div>
-                <ul className="mt-2 space-y-1 text-[12.5px] leading-relaxed text-white/80">
-                  {e.bullets.map((b, i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="mt-[7px] size-1 shrink-0 rounded-full bg-sky-300/80" />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+      {tab === "calendar" && (
+        <div className="space-y-3">
+          <ComingUp items={data.calendar.items} />
+          <WeekCalendar weekStart={data.calendar.weekStart} items={data.calendar.items} />
         </div>
       )}
-      {tab === "calendar" && <WeekCalendar weekStart={data.calendar.weekStart} items={data.calendar.items} />}
     </div>
   );
 }
 
-function TodoList({ items, onChange }: { items: ProfessionalData["todos"]["items"]; onChange: (d: ProfessionalData) => void }) {
+/** Whole days from today to a date: negative = past. */
+const daysFrom = (today: string, iso: string) => Math.round((Date.parse(iso + "T12:00:00Z") - Date.parse(today + "T12:00:00Z")) / 86400000);
+const relDay = (n: number) => (n === 0 ? "Today" : n === 1 ? "Tomorrow" : n === -1 ? "Yesterday" : n > 0 ? `In ${n} days` : `${-n} days ago`);
+
+type TodoItem = ProfessionalData["todos"]["items"][number];
+
+function TodoList({ items, onChange }: { items: TodoItem[]; onChange: (d: ProfessionalData) => void }) {
   const [pending, start] = useTransition();
-  if (!items.length) return <GlassCard>Nothing to do from your inbox. New items appear after the morning inbox job runs.</GlassCard>;
+  if (!items.length) return <GlassCard>Nothing to do right now. New items appear after the hourly email task runs.</GlassCard>;
+  const today = nyToday();
+  const open = items.filter((t) => !t.done);
+  type Group = { key: string; title: string; tone: "bad" | "warn" | "neutral"; list: TodoItem[] };
+  const groups: Group[] = ([
+    { key: "over", title: "Overdue", tone: "bad", list: open.filter((t) => t.due && t.due < today) },
+    { key: "today", title: "Today", tone: "warn", list: open.filter((t) => t.due === today) },
+    { key: "week", title: "Next 7 days", tone: "neutral", list: open.filter((t) => t.due && t.due > today && daysFrom(today, t.due) <= 7) },
+    { key: "later", title: "Later", tone: "neutral", list: open.filter((t) => t.due && daysFrom(today, t.due) > 7) },
+    { key: "none", title: "No date", tone: "neutral", list: open.filter((t) => !t.due) },
+    { key: "done", title: "Done", tone: "neutral", list: items.filter((t) => t.done) },
+  ] as Group[]).filter((g) => g.list.length);
   return (
-    <ul className={clsx("max-h-[380px] space-y-1.5 overflow-y-auto pr-1 [scrollbar-width:thin]", pending && "opacity-70")}>
-      {items.map((t) => (
-        <li key={t.id} className="flex gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3">
-          <button
-            onClick={() => start(async () => onChange(await toggleTodo(t.id, !t.done)))}
-            className={clsx(
-              "mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-md border transition",
-              t.done ? "border-emerald-400/70 bg-emerald-400/20 text-emerald-300" : "border-white/25 hover:border-white/50",
-            )}
-            aria-label={t.done ? "Mark as not done" : "Mark as done"}
-          >
-            {t.done && <Check size={12} />}
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className={clsx("text-[13px] leading-snug", t.done && "text-white/40 line-through")}>{t.title}</div>
-            {(t.detail || t.sender) && (
-              <div className="mt-0.5 text-[11.5px] text-white/40">
-                {t.sender}
-                {t.sender && t.detail ? " · " : ""}
-                {t.detail}
-              </div>
-            )}
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            {t.due && <span className="text-[11px] text-amber-200/80 tnum">{short(t.due)}</span>}
-            {t.url && (
-              <a href={t.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[11px] text-sky-300/80 hover:text-sky-200" aria-label="Open the email">
-                Email <ArrowUpRight size={11} />
-              </a>
-            )}
-          </div>
-        </li>
+    <div className={clsx("max-h-[400px] space-y-3 overflow-y-auto pr-1 [scrollbar-width:thin]", pending && "opacity-70")}>
+      {groups.map((g) => (
+        <section key={g.key}>
+          <h4 className={clsx("mb-1.5 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider", g.tone === "bad" ? "text-rose-300" : g.tone === "warn" ? "text-amber-200" : "text-white/45")}>
+            {g.title}
+            <span className="rounded-full bg-white/10 px-1.5 text-[10.5px] text-white/60 tnum">{g.list.length}</span>
+          </h4>
+          <ul className="space-y-1.5">
+            {g.list.map((t) => {
+              const n = t.due ? daysFrom(today, t.due) : null;
+              return (
+                <li key={t.id} className={clsx("flex gap-3 rounded-2xl border bg-white/[0.04] p-3", g.key === "over" ? "border-rose-300/30" : "border-white/[0.08]")}>
+                  <button
+                    onClick={() => start(async () => onChange(await toggleTodo(t.id, !t.done)))}
+                    className={clsx(
+                      "mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-md border transition",
+                      t.done ? "border-emerald-400/70 bg-emerald-400/20 text-emerald-300" : "border-white/25 hover:border-white/50",
+                    )}
+                    aria-label={t.done ? "Mark as not done" : "Mark as done"}
+                  >
+                    {t.done && <Check size={12} />}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className={clsx("text-[13px] leading-snug", t.done && "text-white/40 line-through")}>{t.title}</div>
+                    {(t.detail || t.sender) && (
+                      <div className="mt-0.5 text-[11.5px] text-white/40">
+                        {t.sender}
+                        {t.sender && t.detail ? " · " : ""}
+                        {t.detail}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {t.due && !t.done && n !== null && <Pill tone={n < 0 ? "warn" : n <= 1 ? "accent" : "neutral"}>{n < 0 ? `${-n}d late` : n === 0 ? "Today" : n === 1 ? "Tomorrow" : short(t.due)}</Pill>}
+                    {t.url && (
+                      <a href={t.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[11px] text-sky-300/80 hover:text-sky-200" aria-label="Open the email">
+                        Email <ArrowUpRight size={11} />
+                      </a>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
+  );
+}
+
+/** The next few things on the calendar, deadlines marked. */
+function ComingUp({ items }: { items: ProfessionalData["calendar"]["items"] }) {
+  const today = nyToday();
+  const next = items.filter((e) => e.date >= today && daysFrom(today, e.date) <= 14).slice(0, 6);
+  return (
+    <GlassCard title="Coming up" right={<span className="text-[11px] text-white/40">next 14 days</span>}>
+      {next.length ? (
+        <ul className="space-y-1.5">
+          {next.map((e, i) => (
+            <li key={e.date + e.title + i} className="flex items-center gap-3 text-[12.5px]">
+              <span className="w-[74px] shrink-0 text-white/50">{relDay(daysFrom(today, e.date))}</span>
+              <span className="w-14 shrink-0 text-white/40 tnum">{e.time || "All day"}</span>
+              <span className="min-w-0 flex-1 truncate text-white/90">{e.title}</span>
+              {e.kind === "deadline" && <Pill tone="warn">Due</Pill>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="text-[12px] text-white/35">Nothing in the next two weeks.</span>
+      )}
+    </GlassCard>
   );
 }
 

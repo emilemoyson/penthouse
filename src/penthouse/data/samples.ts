@@ -1,5 +1,5 @@
 import { addDays, lastNDays } from "@/lib/dates";
-import type { EmailSummary, Meal, PantryItem, SleepNight } from "./types";
+import type { Meal, PantryItem, SleepNight } from "./types";
 
 /* Realistic placeholders, shown (and labelled as samples) until a real source is connected. */
 
@@ -23,16 +23,6 @@ export function sampleSleep(today: string): { lastNight: SleepNight; week: { dat
     },
     week: days.map((d, i) => ({ date: d, totalMin: mins[i], recovery: rec[i] })),
   };
-}
-
-export function sampleEmails(today: string): EmailSummary[] {
-  const at = (n: number, h: number) => `${addDays(today, -n)}T${String(h).padStart(2, "0")}:00:00Z`;
-  return [
-    { id: "s1", receivedAt: at(0, 14), sender: "Recruiting · Example Capital", subject: "Application received", tag: "Job", bullets: ["Application confirmed for the 2027 analyst role", "Online assessment link arrives within a week"] },
-    { id: "s2", receivedAt: at(0, 11), sender: "Program office", subject: "Deadline reminder", tag: "Action", bullets: ["Short form due Friday", "Submit through the student portal"] },
-    { id: "s3", receivedAt: at(1, 18), sender: "Student club", subject: "Event logistics", tag: "Club", bullets: ["Room confirmed", "Two volunteers needed for check-in from 6pm"] },
-    { id: "s4", receivedAt: at(2, 9), sender: "Course platform", subject: "Weekly progress", tag: "School", bullets: ["Summary of this week's progress", "Next module due Sunday"] },
-  ];
 }
 
 export function sampleMeals(today: string): Meal[] {

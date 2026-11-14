@@ -63,7 +63,7 @@ Plan: `~/.claude/plans/can-you-please-help-rustling-scott.md`. All work is commi
 1. Deploy: import the GitHub repo on vercel.com, add Neon (Storage), set env vars. Use new values for `APP_PASSWORD`, `INGEST_TOKEN` and `JOBS_SHEET_TOKEN` (the old ones showed in a screenshot). Add `ANTHROPIC_API_KEY` too.
 2. After deploy: point `scripts/.env` `INGEST_URL` at the Vercel URL so the Lidl sync works without the laptop server.
 3. Gym: the Apple Notes sync is built (see below). Emile installs `scripts/com.emile.gym-sync.plist`. The iPhone Shortcut is no longer needed.
-4. Morning inbox: now summaries only. Paste `automation/morning-inbox.md` (with the site URL and token) into a scheduled task and run it once.
+4. Inbox tab: removed on 2026-11-14 (to-dos and calendar only). The cloud routine `trig_01GKv4Zof3QtK4XNteeQbpLW` is paused; `automation/morning-inbox.md` is retired.
 5. MyFitnessPal: install `scripts/com.emile.mfp-sync.plist` and test with `--dry-run` first.
 
 ## Calendar and email task (2026-10-20)

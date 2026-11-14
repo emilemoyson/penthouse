@@ -24,7 +24,7 @@ Where things stand and what's next: `docs/STATUS.md`. Update it when a topic is 
 | `mcp/` | Penthouse MCP server (Python, `mcp` SDK 2.x): read-only role for reads, `/api/ingest` for writes. Venv `mcp/.venv` (Python 3.12), tests `mcp/.venv/bin/pytest mcp` against `hub_test`. See `mcp/README.md` |
 | `apps-script/JobsFeed.gs` | Google Sheet feed (unused by the dashboard since the Jobs tab was removed; leave it alone) |
 | `automation/calendar-agent.md` | Prompt for the hourly email task: Gmail + Outlook → Google Calendar, and to-dos read from every email |
-| `automation/morning-inbox.md` | Prompt for the morning Gmail summaries task |
+| `automation/morning-inbox.md` | Retired: the Inbox tab was removed (2026-11-14); the cloud routine is paused. Kept for reference |
 | `src/lib/gcal.ts` | Reads Google Calendar and any extra iCal feeds (secret URLs) for the calendar panel |
 
 ## Run and check

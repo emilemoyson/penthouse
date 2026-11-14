@@ -52,7 +52,7 @@ export function useLiveData<T>(key: ZoneDataKey, initial: T, { refreshMs = 5 * 6
 /** 🛏️ Sleep, deep/REM, recovery. Source: sleep_logs ← POST /api/ingest/sleep */
 export const useSleepData = (initial: SleepData) => useLiveData<SleepData>("sleep", initial, { refreshMs: 15 * 60_000 });
 
-/** 🖥️ Job grid (Google Sheet), AI email summaries, calendar feed. */
+/** 🖥️ To-dos and calendar feeds. */
 export const useProfessionalData = (initial: ProfessionalData) => useLiveData<ProfessionalData>("professional", initial, { refreshMs: 5 * 60_000 });
 
 /** 🏋️ Weekly frequency, active minutes, muscle split. Source: Training tab (workouts/runs). */

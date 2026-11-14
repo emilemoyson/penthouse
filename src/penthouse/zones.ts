@@ -68,7 +68,7 @@ export const ZONES: ZoneDef[] = [
     labelY: 2.0,
     label: "Office",
     title: "Professional Hub",
-    subtitle: "Inbox, to-dos and calendar",
+    subtitle: "To-dos and calendar",
     key: "2",
     anchor: [4.6, 0, -5.0],
     // swoops over the right shoulder onto the desk

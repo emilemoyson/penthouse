@@ -4,7 +4,7 @@
  *
  * Where live data comes from:
  *   sleep        → sleep_logs table   ← POST /api/ingest/sleep   (Garmin/garth script, Oura, WHOOP, Apple Health export)
- *   professional → email_summaries ← POST /api/ingest/emails + Google Calendar (iCal feed)
+ *   professional → todos ← POST /api/ingest/todos + Google Calendar (iCal feeds)
  *   fitness      → workouts / sets / runs tables (Training tab, later Strava)
  *   nutrition    → meals, pantry_items, grocery_runs ← kitchen panel or POST /api/ingest/{meals,groceries}
  */
@@ -12,7 +12,7 @@ import { db, getKV } from "@/lib/db";
 import { addDays, daysBetween, fShort, lastNDays, mondayOf, todayISO } from "@/lib/dates";
 import { loadTraining, fmtW } from "@/lib/training";
 import { exerciseSummaries, setsPerMuscle } from "@/lib/coach";
-import { sampleEmails, sampleKcalWeek, sampleMeals, samplePantry, sampleSleep, sampleSpend } from "./samples";
+import { sampleKcalWeek, sampleMeals, samplePantry, sampleSleep, sampleSpend } from "./samples";
 import { daysLeft, USE_SOON_DAYS } from "@/lib/kitchen";
 import { receiptEnabled } from "@/lib/receipt";
 import { loadGoogleEvents } from "@/lib/gcal";
@@ -83,32 +83,12 @@ export async function getProfessionalData(today = todayISO()): Promise<Professio
   // no database: still show placeholders instead of breaking the home page
   const sql = await db().catch(() => null);
 
-  // AI email summaries: written by the inbox job into email_summaries
-  const mail = sql
-    ? await sql<{ id: string; received_at: Date; sender: string; subject: string; summary: string; bullets: string[]; tag: string; url: string | null }[]>`
-        select id, received_at, sender, subject, summary, bullets, tag, url from email_summaries order by received_at desc limit 12`.catch(() => [])
-    : [];
-  const emails: ProfessionalData["emails"] = mail.length
-    ? {
-        source: "live",
-        items: mail.map((m) => ({
-          id: m.id,
-          receivedAt: new Date(m.received_at).toISOString(),
-          sender: m.sender,
-          subject: m.subject,
-          bullets: Array.isArray(m.bullets) && m.bullets.length ? m.bullets : m.summary ? [m.summary] : [],
-          tag: m.tag,
-          url: m.url ?? undefined,
-        })),
-      }
-    : { source: "sample", items: sampleEmails(today) };
-
   // Calendar: Google Calendar via its secret iCal address (GOOGLE_CALENDAR_ICS_URL), plus extra feeds (EXTRA_CALENDAR_ICS_URLS). The hourly email task adds to it.
   const weekStart = mondayOf(today);
   const gcal = await loadGoogleEvents(weekStart, addDays(weekStart, 34));
   const calendar: ProfessionalData["calendar"] = { source: gcal ? "live" : "sample", weekStart, items: gcal ?? [] };
 
-  // To-dos pulled out of emails by the morning inbox job (POST /api/ingest/todos)
+  // To-dos pulled out of emails by the hourly email task (POST /api/ingest/todos)
   const td = sql
     ? await sql<{ id: string; title: string; detail: string; due: string | null; sender: string; done: boolean; url: string | null }[]>`
         select id, title, detail, due, sender, done, url from todos
@@ -117,11 +97,10 @@ export async function getProfessionalData(today = todayISO()): Promise<Professio
     : [];
   const todos: ProfessionalData["todos"] = { source: sql ? "live" : "sample", items: td.map((t) => ({ ...t })) };
 
-  const parts = [emails.source === "live", calendar.source === "live"];
+  const parts = [calendar.source === "live", todos.source === "live"];
   return {
     source: parts.every(Boolean) ? "live" : parts.some(Boolean) ? "partial" : "sample",
     updatedAt: now(),
-    emails,
     calendar,
     todos,
   };

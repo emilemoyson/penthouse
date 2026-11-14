@@ -1,4 +1,4 @@
-# Morning inbox task
+# Morning inbox task (retired 2026-11-14: the Inbox tab was removed)
 
 Prompt for the Claude Desktop scheduled task that runs every morning. Paste everything below the line into the task. Replace `SITE_URL` and `INGEST_TOKEN` with the real values (keep the token out of git).
 
