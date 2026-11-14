@@ -7,6 +7,7 @@ import { Character } from "../characters/Character";
 import { Bed as BedFrame, Bench, Nightstand } from "../look/furniture";
 import { BookStack, C, Candle, Plant, TableLamp, Mug } from "../look/decor";
 import { berberRug, fabric } from "../look/textures";
+import { useAmbient } from "../ambient";
 
 // Lying on the back: local up → world -X (head on the pillows), local front → world +Y (face up).
 const LYING = new THREE.Euler().setFromRotationMatrix(new THREE.Matrix4().set(0, -1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 1));
@@ -17,6 +18,8 @@ export function Bed() {
   const rot = useMemo(() => [LYING.x, LYING.y, LYING.z] as [number, number, number], []);
   const rug = useMemo(() => berberRug("#e6dccb", "#3b3530"), []);
   const fab = fabric();
+  // after a short night the duvet is kicked down to the foot of the bed
+  const unmade = useAmbient((s) => s.bedUnmade);
   return (
     <Zone id="bed" hitbox={{ size: [3.6, 1.6, 3.4], position: [-7.2, 0.8, -3.4] }}>
       <mesh rotation-x={-Math.PI / 2} rotation-z={Math.PI / 2} position={[-6.7, 0.006, -3.4]} receiveShadow>
@@ -42,7 +45,13 @@ export function Bed() {
           HOOK: <Character> takes the same props as a future GLB avatar (see characters/Character.tsx) */}
       <Character action="sleep" outfit="sleep" position={[-6.62, 0.72, -3.62]} rotation={rot} speed={0.7} />
       {/* duvet pulled up to the shoulders, with a turned-down sheet */}
-      <mesh position={[-6.92, 0.66, -3.62]} rotation-z={Math.PI / 2} scale={[0.75, 1, 1.55]} castShadow receiveShadow>
+      <mesh
+        position={unmade ? [-6.35, 0.68, -3.5] : [-6.92, 0.66, -3.62]}
+        rotation={unmade ? [0.25, 0.5, Math.PI / 2] : [0, 0, Math.PI / 2]}
+        scale={unmade ? [0.85, 0.55, 1.35] : [0.75, 1, 1.55]}
+        castShadow
+        receiveShadow
+      >
         <capsuleGeometry args={[0.3, 0.95, 8, 24]} />
         <meshStandardMaterial color="#cdbfae" roughness={1} map={fab} />
       </mesh>

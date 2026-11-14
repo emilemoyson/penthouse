@@ -458,7 +458,7 @@ export function Stool(g: G) {
 }
 
 /** Back run along Z: sage cabinets, marble counter, open oak shelves with jars and plates, warm LED, fridge. Front faces -X. */
-export function BackKitchen({ length = 2.6, ...g }: { length?: number } & G) {
+export function BackKitchen({ length = 2.6, fill = 1, ...g }: { length?: number; fill?: number } & G) {
   const m = marble();
   const r = useMemo(() => rng(5), []);
   const jars = useMemo(() => Array.from({ length: 7 }, (_, i) => ({ z: -length / 2 + 0.25 + i * 0.32, h: 0.12 + r() * 0.1, c: ["#e8dcc6", "#c69d6a", "#8e7a5c", "#f1ebe0"][i % 4] })), [length, r]);
@@ -490,7 +490,7 @@ export function BackKitchen({ length = 2.6, ...g }: { length?: number } & G) {
         <boxGeometry args={[0.01, 0.008, length - 0.2]} />
         <meshBasicMaterial color={C.warmSoft} toneMapped={false} />
       </mesh>
-      {jars.map((j, i) => (
+      {jars.slice(0, Math.round(fill * jars.length)).map((j, i) => (
         <mesh key={i} position={[0.15, 1.52 + j.h / 2, j.z]} castShadow>
           <cylinderGeometry args={[0.045, 0.045, j.h, 16]} />
           <meshStandardMaterial color={j.c} roughness={0.3} transparent opacity={0.92} />
@@ -548,7 +548,7 @@ export function Fridge(g: G) {
 }
 
 /** Fruit bowl. */
-export function FruitBowl(g: G) {
+export function FruitBowl({ fill = 1, ...g }: { fill?: number } & G) {
   const fruit = [
     { p: [0, 0.07, 0], c: "#e0a030" },
     { p: [0.06, 0.07, 0.03], c: "#c84a2f" },
@@ -561,7 +561,7 @@ export function FruitBowl(g: G) {
         <sphereGeometry args={[0.13, 28, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
         <meshStandardMaterial color={C.walnut} roughness={0.5} side={THREE.DoubleSide} />
       </mesh>
-      {fruit.map((f, i) => (
+      {fruit.slice(0, Math.round(fill * fruit.length)).map((f, i) => (
         <mesh key={i} position={f.p as unknown as [number, number, number]} castShadow>
           <sphereGeometry args={[0.04, 16, 12]} />
           <meshStandardMaterial color={f.c} roughness={0.5} />

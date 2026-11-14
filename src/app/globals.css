@@ -4,64 +4,68 @@
 
 /* ---------- Design tokens ----------
    Dark is the default. Light only applies when the toggle sets data-theme="light". */
+/* ---------- Design tokens: warm editorial ----------
+   Dark (warm charcoal) is the default. Light (paper cream) applies when the toggle sets data-theme="light". */
 :root {
   color-scheme: dark;
-  --bg: #08080a;
-  --surface: #111114;
-  --surface-2: #18181c;
-  --surface-3: #222228;
-  --border: #1f1f25;
-  --border-strong: #2e2e36;
-  --ink: #f2f2f4;
-  --ink-2: #a9a9b3;
-  --ink-3: #6f6f7a;
-  --accent: #4b93ec;
-  --accent-soft: #14233a;
-  --accent-ink: #8dbcf3;
-  --s1: #3987e5; /* blue */
-  --s2: #d95926; /* orange */
-  --s3: #199e70; /* aqua */
-  --good: #3fb83f;
-  --good-soft: #10241a;
-  --warn: #e0a23a;
-  --warn-soft: #2a2010;
-  --bad: #e66767;
-  --bad-soft: #2c1618;
-  --grid: #1c1c22;
-  --shadow: inset 0 1px 0 rgb(255 255 255 / 0.035), 0 1px 2px rgb(0 0 0 / 0.4);
-  --glow-a: rgb(57 135 229 / 0.13);
-  --glow-b: rgb(25 158 112 / 0.07);
-  --sidebar: rgb(255 255 255 / 0.015);
+  --bg: #1a1714;
+  --surface: #221e1a;
+  --surface-2: #2a2520;
+  --surface-3: #352f29;
+  --border: #302a24;
+  --border-strong: #443c34;
+  --ink: #f3ede4;
+  --ink-2: #bdb2a5;
+  --ink-3: #8a8076;
+  --accent: #e2774a;
+  --accent-soft: #3a2418;
+  --accent-ink: #f2a07a;
+  --s1: #e2774a; /* terracotta */
+  --s2: #7fae8a; /* sage */
+  --s3: #cfae78; /* brass */
+  --good: #7fae8a;
+  --good-soft: #1f2d23;
+  --warn: #d9a54a;
+  --warn-soft: #33281a;
+  --bad: #e07a6a;
+  --bad-soft: #3a1f1b;
+  --grid: #2c2721;
+  --shadow: inset 0 1px 0 rgb(255 240 220 / 0.03), 0 1px 2px rgb(0 0 0 / 0.35);
+  --glow-a: rgb(226 119 74 / 0.07);
+  --glow-b: rgb(127 174 138 / 0.04);
+  --sidebar: rgb(255 240 220 / 0.015);
+  --bar: rgb(26 23 20 / 0.82);
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f6f6f4;
-  --surface: #ffffff;
-  --surface-2: #f2f2ef;
-  --surface-3: #e9e9e5;
-  --border: #e4e4df;
-  --border-strong: #d3d3cd;
-  --ink: #111110;
-  --ink-2: #52514e;
-  --ink-3: #8a8984;
-  --accent: #2a78d6;
-  --accent-soft: #e8f1fc;
-  --accent-ink: #1c5cab;
-  --s1: #2a78d6;
-  --s2: #eb6834;
-  --s3: #1baf7a;
-  --good: #0c8a0c;
-  --good-soft: #e7f5e7;
-  --warn: #b77900;
-  --warn-soft: #fdf3dc;
-  --bad: #d03b3b;
-  --bad-soft: #fbeaea;
-  --grid: #ecece8;
-  --shadow: 0 1px 2px rgb(16 16 15 / 0.04), 0 1px 1px rgb(16 16 15 / 0.03);
-  --glow-a: rgb(42 120 214 / 0.06);
-  --glow-b: rgb(27 175 122 / 0.04);
-  --sidebar: rgb(255 255 255 / 0.6);
+  --bg: #f6f1e9;
+  --surface: #fffdf9;
+  --surface-2: #f1eadf;
+  --surface-3: #e8dfd1;
+  --border: #e6dccb;
+  --border-strong: #d4c6b0;
+  --ink: #1c1917;
+  --ink-2: #57504a;
+  --ink-3: #8c8279;
+  --accent: #c2410c;
+  --accent-soft: #fae8dc;
+  --accent-ink: #9a3412;
+  --s1: #c2410c;
+  --s2: #4d7c5a;
+  --s3: #b08d57;
+  --good: #3f7550;
+  --good-soft: #e4efe5;
+  --warn: #a8701a;
+  --warn-soft: #f8edd6;
+  --bad: #b42318;
+  --bad-soft: #fbe6e3;
+  --grid: #ebe3d6;
+  --shadow: 0 1px 2px rgb(60 40 20 / 0.05), 0 1px 1px rgb(60 40 20 / 0.03);
+  --glow-a: rgb(194 65 12 / 0.035);
+  --glow-b: rgb(77 124 90 / 0.03);
+  --sidebar: rgb(255 253 249 / 0.6);
+  --bar: rgb(246 241 233 / 0.85);
 }
 
 @theme inline {
@@ -83,7 +87,11 @@
   --color-warn-soft: var(--warn-soft);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
+  --color-s1: var(--s1);
+  --color-s2: var(--s2);
+  --color-s3: var(--s3);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -198,6 +206,15 @@ input[type="number"] {
   }
 }
 
+/* Shared motion: tabs and cards ease in 180 ms */
+.tab-link,
+.card-lift {
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+html {
+  scroll-behavior: smooth;
+}
+
 .fade-in {
   animation: fadeIn 0.25s ease-out;
 }
@@ -232,4 +249,21 @@ input[type="number"] {
     border-color: rgb(255 255 255 / 0.35);
     box-shadow: 0 0 0 3px rgb(255 255 255 / 0.06);
   }
+}
+
+/* One-page dashboard: on a laptop the page fits the screen and only inner lists scroll. */
+@media (min-width: 1024px) {
+  main:has([data-fit]) { padding-bottom: 1.25rem; }
+  body:has([data-fit]) { overflow: hidden; }
+}
+.scroll-soft { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+/* studio walkthrough caption */
+@keyframes tourIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tourBar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }

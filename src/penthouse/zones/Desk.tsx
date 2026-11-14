@@ -7,10 +7,13 @@ import { Desk as DeskTop, KeyboardMouse, LaptopOnStand, Monitor, OfficeChair } f
 import { BookStack, C, DeskLamp, Mug, Plant } from "../look/decor";
 import { berberRug } from "../look/textures";
 import { useMemo } from "react";
+import { useAmbient } from "../ambient";
 
 /** 🖥️ Office: walnut desk facing the city, ultrawide on an arm, laptop on a stand, desk lamp, plants. Emile at work. */
 export function Desk() {
   const glow = useGlow("desk", 1);
+  // the lamp dims as the to-do list clears
+  const lamp = useAmbient((s) => s.officeLight);
   const rug = useMemo(() => berberRug("#3f3a35", "#8a7a66"), []);
   const top = 0.76;
   return (
@@ -24,7 +27,7 @@ export function Desk() {
         <Monitor glow={glow} position={[-0.15, 0, 0]} />
         <KeyboardMouse position={[-0.15, 0, 0.17]} />
         <LaptopOnStand glow={glow} position={[0.55, 0, -0.05]} rotation-y={-0.3} />
-        <DeskLamp position={[-0.68, 0, -0.18]} rotation-y={-0.4} intensity={2.4 * glow} />
+        <DeskLamp position={[-0.68, 0, -0.18]} rotation-y={-0.4} intensity={2.4 * glow * lamp} />
         <Mug position={[0.3, 0, 0.2]} color={C.cream} />
         <BookStack position={[-0.6, 0, 0.15]} count={2} seed={11} />
         <Plant kind="herb" position={[0.68, 0, 0.25]} scale={1.4} seed={6} pot={C.terracotta} />
@@ -37,7 +40,7 @@ export function Desk() {
       <Character action="type" outfit="emile" position={[4.45, 0, -4.5]} rotation={[0, Math.PI, 0]} />
 
       {/* cool spill from the screens */}
-      <GlowLight position={[4.45, 1.3, -5.0]} color="#7fb3ff" intensity={2.6 * glow} distance={3.5} shadow />
+      <GlowLight position={[4.45, 1.3, -5.0]} color="#7fb3ff" intensity={2.6 * glow * (0.4 + 0.6 * lamp)} distance={3.5} shadow />
     </Zone>
   );
 }

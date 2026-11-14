@@ -6,10 +6,14 @@ import { Character, type Action } from "../characters/Character";
 import { GlowLight } from "../scene/lights";
 import { Bike, DumbbellRack, FlatBench, Kettlebell, LeaningMirror, YogaMat } from "../look/furniture";
 import { C, Plant } from "../look/decor";
+import { useAmbient } from "../ambient";
 
 /** 🏋️ Home gym corner: rubber floor, dumbbell rack, bench, bike, leaning mirror. Coach agent loops squats and stretches. */
 export function Gym() {
   const glow = useGlow("gym", 1);
+  // the gym lights up on a day you trained, and sits low otherwise
+  const trained = useAmbient((s) => s.trainedToday);
+  const lit = trained ? 1.25 : 0.55;
   const [action, setAction] = useState<Action>("squat");
   useEffect(() => {
     const id = setInterval(() => setAction((a) => (a === "squat" ? "stretch" : "squat")), 9000);
@@ -39,10 +43,12 @@ export function Gym() {
       </mesh>
       <mesh position={[-9.04, 2.595, 3.0]} rotation-y={Math.PI / 2}>
         <boxGeometry args={[2.5, 0.012, 0.03]} />
-        <meshBasicMaterial color="#ffcf96" toneMapped={false} />
+        <meshBasicMaterial color={trained ? "#ffcf96" : "#6b5a48"} toneMapped={false} />
       </mesh>
-      <GlowLight position={[-8.4, 2.5, 3.0]} color="#ffbf80" intensity={5 * glow} distance={6} />
-      <GlowLight position={[-5.6, 2.8, 3.6]} color="#ffd2a0" intensity={4 * glow} distance={6} shadow />
+      <GlowLight position={[-8.4, 2.5, 3.0]} color="#ffbf80" intensity={5 * glow * lit} distance={6} />
+      <GlowLight position={[-5.6, 2.8, 3.6]} color="#ffd2a0" intensity={4 * glow * lit} distance={6} shadow />
+      {/* always mounted so the light count never changes (no shader recompile) */}
+      <GlowLight position={[-6.6, 0.4, 3.3]} color="#9085e9" intensity={trained ? 3.5 : 0} distance={4.5} />
 
       {/* ===== IDLE: sub-agent "coach" training ===== */}
       <Character action={action} outfit="coach" position={[-5.2, 0.015, 3.3]} rotation={[0, 0.6, 0]} />

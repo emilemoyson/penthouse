@@ -2,7 +2,9 @@ import { Penthouse } from "@/penthouse/Penthouse";
 import { getPenthouseData } from "@/penthouse/data/server";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Penthouse" };
+import { SITE_NAME } from "@/lib/site";
+
+export const metadata = { title: { absolute: SITE_NAME } };
 
 /**
  * First paint gets every zone's payload from the server; after that each panel's hook

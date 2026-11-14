@@ -3,13 +3,15 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ChevronsDown, X, LayoutGrid } from "lucide-react";
+import { ArrowUpRight, ChevronsDown, X, LayoutGrid, Play, Plus } from "lucide-react";
+import { create } from "zustand";
 import { useZone, type ZoneId } from "./store";
 import { ZONES, zoneById } from "./zones";
 import type { PenthouseData } from "./data/types";
+import { SITE_NAME } from "@/lib/site";
 import { labelEls } from "./labels";
-import { FitnessPanel, ProfessionalPanel, SleepPanel } from "./overlays/panels";
-import { NutritionPanel } from "./overlays/kitchen";
+import { RoomChat } from "./overlays/RoomChat";
+import { ambientFrom, nyHour, statusLine, useAmbient } from "./ambient";
 import { Sheet, openFullView } from "./overlays/Sheet";
 import { innerCanScroll, nudgeRise, onRiseFrame } from "./rise";
 
@@ -18,6 +20,11 @@ const Scene = dynamic(() => import("./scene/Scene"), { ssr: false, loading: () =
 
 export function Penthouse({ data }: { data: PenthouseData }) {
   const root = useRef<HTMLDivElement>(null);
+
+  // the rooms show the day without numbers: lamp, bed, shelves, gym lights
+  useEffect(() => {
+    useAmbient.setState(ambientFrom(data));
+  }, [data]);
 
   // In a focused room, scrolling anywhere (room, panel, empty space) drives the rise into the sky
   // and the full view. A list inside the panel that can still scroll gets the wheel first.
@@ -59,8 +66,9 @@ export function Penthouse({ data }: { data: PenthouseData }) {
         <Scene />
       </div>
       <ZoneLabels />
-      <Hud />
+      <Hud data={data} />
       <Overlay data={data} />
+      <Tour data={data} />
     </div>
   );
 }
@@ -96,13 +104,17 @@ function Clock() {
   );
 }
 
-function Hud() {
+function Hud({ data }: { data: PenthouseData }) {
   const phase = useZone((s) => s.phase);
+  const touring = useTour((s) => s.step != null);
   const focus = useZone((s) => s.focus);
   const hovered = useZone((s) => s.hovered);
   const hover = useZone((s) => s.hover);
-  const free = phase === "overview" || phase === "returning";
+  const free = (phase === "overview" || phase === "returning") && !touring;
   const [hint, setHint] = useState(true);
+  // the hour is only known in the browser (and ?hour= can change it), so name the walkthrough after mount
+  const [greet, setGreet] = useState("Morning");
+  useEffect(() => setGreet(greeting()), []);
   useEffect(() => {
     const id = setTimeout(() => setHint(false), 7000);
     return () => clearTimeout(id);
@@ -112,15 +124,26 @@ function Hud() {
     <>
       {/* top-left: identity + clock */}
       <div className={clsx("pointer-events-none absolute left-5 top-5 transition-opacity duration-500 sm:left-7 sm:top-6", free ? "opacity-100" : "opacity-0 sm:opacity-100")}>
-        <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/40">Emile&apos;s penthouse</div>
+        <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/40">{SITE_NAME}</div>
         <div className="mt-1 flex flex-col">
           <Clock />
         </div>
       </div>
+      <button
+        onClick={startTour}
+        className={clsx(
+          "absolute left-5 top-[104px] inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[12px] font-medium text-white/70 backdrop-blur-md transition hover:bg-white/[0.12] hover:text-white sm:left-7 sm:top-[112px]",
+          free ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      >
+        <Play size={12} /> {greet} walkthrough
+      </button>
+
+      <Connectors data={data} show={free} />
 
       {/* top-right: classic pages */}
       <a
-        href="/training"
+        href="/dashboard"
         className={clsx(
           "absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[12px] font-medium text-white/70 backdrop-blur-md transition hover:bg-white/[0.12] hover:text-white sm:right-7 sm:top-6",
           free ? "opacity-100" : "pointer-events-none opacity-0",
@@ -171,7 +194,8 @@ function Overlay({ data }: { data: PenthouseData }) {
   useEffect(() => {
     if (zone) setShown(zone);
   }, [zone]);
-  const visible = phase === "focused" && zone != null;
+  const touring = useTour((s) => s.step != null);
+  const visible = phase === "focused" && zone != null && !touring;
   const def = shown ? zoneById(shown) : null;
 
   // as the camera rises the panel lifts and fades, leaving the sky and the full view
@@ -233,17 +257,16 @@ function Overlay({ data }: { data: PenthouseData }) {
                   </button>
                 </div>
               </header>
-              <div className="relative flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6 [scrollbar-width:thin]">
-                {shown === "bed" && <SleepPanel initial={data.sleep} />}
-                {shown === "desk" && <ProfessionalPanel initial={data.professional} />}
-                {shown === "gym" && <FitnessPanel initial={data.fitness} />}
-                {shown === "kitchen" && <NutritionPanel initial={data.nutrition} />}
-                {def.href && (
-                  <button onClick={openFullView} className="mt-5 flex w-full flex-col items-center gap-1 pb-1 text-[11.5px] text-white/35 transition hover:text-white/70">
-                    Scroll for the full view
-                    <ChevronsDown size={15} className="animate-bounce" />
-                  </button>
-                )}
+              <div className="relative flex min-h-0 flex-1 flex-col px-5 py-4 sm:px-6">
+                <p className="text-[15px] leading-snug text-white/90">{statusLine(def.id, data)}</p>
+                <a
+                  href="/dashboard"
+                  className="mt-2 inline-flex w-fit items-center gap-1 text-[12.5px] font-medium text-white/55 transition hover:text-white"
+                >
+                  Open in Today <ArrowUpRight size={13} />
+                </a>
+                <div className="my-4 h-px shrink-0 bg-white/[0.08]" />
+                <RoomChat zone={def.id} color={def.color} />
               </div>
               <footer className="relative hidden border-t border-white/[0.06] px-6 py-2.5 text-[11.5px] text-white/35 lg:block">
                 {def.href ? "Scroll for the full view · " : ""}<kbd className="font-mono">Esc</kbd> to zoom out · <kbd className="font-mono">1–4</kbd> to jump between rooms
@@ -293,6 +316,161 @@ function ZoneLabels() {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* Morning walkthrough: one button tours the rooms with a caption each      */
+/* ---------------------------------------------------------------------- */
+
+const TOUR: ZoneId[] = ["bed", "desk", "gym", "kitchen"];
+const STOP_MS = 6200;
+// step: index into TOUR, TOUR.length for the closing card, null when not touring
+const useTour = create<{ step: number | null }>(() => ({ step: null }));
+let tourTimer: ReturnType<typeof setTimeout> | undefined;
+
+function greeting() {
+  const h = nyHour();
+  return h < 12 ? "Morning" : h < 18 ? "Afternoon" : "Evening";
+}
+
+function goTo(step: number) {
+  clearTimeout(tourTimer);
+  useTour.setState({ step });
+  if (step < TOUR.length) {
+    useZone.getState().focus(TOUR[step]);
+    tourTimer = setTimeout(() => goTo(step + 1), STOP_MS);
+  } else {
+    useZone.getState().close();
+  }
+}
+
+function startTour() {
+  goTo(0);
+}
+
+function stopTour() {
+  clearTimeout(tourTimer);
+  useTour.setState({ step: null });
+}
+
+const AMBIENT_NOTE: Record<ZoneId, (d: PenthouseData) => string> = {
+  bed: (d) => (ambientFrom(d).bedUnmade ? "The bed's unmade: a short night." : "The bed's made: you slept enough."),
+  desk: (d) => (ambientFrom(d).officeLight > 0.6 ? "The desk lamp is bright: there's a fair bit open." : "The desk lamp is low: not much left to do."),
+  gym: (d) => (ambientFrom(d).trainedToday ? "The gym is lit: you trained today." : "The gym is dim: no session yet today."),
+  kitchen: (d) => (ambientFrom(d).pantryFill > 0.5 ? "The shelves are stocked." : "The shelves are getting bare: time for groceries."),
+};
+
+function Tour({ data }: { data: PenthouseData }) {
+  const step = useTour((s) => s.step);
+  const zone = useZone((s) => s.zone);
+
+  // Esc, a number key or a click elsewhere takes over the camera: end the tour
+  useEffect(() => {
+    if (step == null) return;
+    const expected = step < TOUR.length ? TOUR[step] : null;
+    if (zone !== expected) stopTour();
+  }, [zone, step]);
+
+  if (step == null) return null;
+  const end = step >= TOUR.length;
+  const def = end ? null : zoneById(TOUR[step]);
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-6 z-30 flex justify-center px-4">
+      <div
+        key={step}
+        className="pointer-events-auto w-full max-w-[560px] animate-[tourIn_600ms_ease-out] rounded-2xl border border-white/10 bg-black/45 px-5 py-4 text-white shadow-2xl backdrop-blur-xl"
+      >
+        {def ? (
+          <>
+            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-white/45">
+              <span className="size-1.5 rounded-full" style={{ background: def.color, boxShadow: `0 0 10px ${def.color}` }} />
+              {def.label} · {step + 1} of {TOUR.length}
+            </div>
+            <p className="mt-1.5 text-[16px] leading-snug">{statusLine(def.id, data)}</p>
+            <p className="mt-0.5 text-[13px] text-white/50">{AMBIENT_NOTE[def.id](data)}</p>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full origin-left rounded-full" style={{ background: def.color, animation: `tourBar ${STOP_MS}ms linear forwards` }} />
+              </div>
+              <button onClick={() => goTo(step + 1)} className="text-[12px] text-white/55 transition hover:text-white">
+                Next
+              </button>
+              <button onClick={() => (stopTour(), useZone.getState().close())} className="text-[12px] text-white/55 transition hover:text-white">
+                Skip
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/45">That&rsquo;s the day</div>
+              <p className="mt-1 text-[15px]">Everything in one place is on Today.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={stopTour} className="rounded-full px-3 py-1.5 text-[12.5px] text-white/60 transition hover:text-white">
+                Stay here
+              </button>
+              <a href="/dashboard" className="inline-flex items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-black transition hover:bg-white/85">
+                Open Today <ArrowUpRight size={13} />
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* Connectors: what feeds the apartment, lit when connected                 */
+/* ---------------------------------------------------------------------- */
+
+function Connectors({ data, show }: { data: PenthouseData; show: boolean }) {
+  const todos = data.professional.todos;
+  const from = (p: string) => todos.items.some((t) => t.id.startsWith(p));
+  const gmail = todos.source === "live" && todos.items.some((t) => !/^(manual-|outlook:|blackboard:)/.test(t.id));
+  const items = [
+    { name: "Gmail", on: gmail, what: "To-dos from email, every hour" },
+    { name: "Outlook", on: from("outlook:"), what: "To-dos from school email, every hour" },
+    { name: "Calendar", on: data.professional.calendar.source === "live", what: "Google Calendar and iCal feeds" },
+    { name: "Strava", on: false, what: "Runs and rides" },
+    { name: "Garmin", on: false, what: "Sleep and training load" },
+    { name: "WHOOP", on: false, what: "Recovery and strain" },
+  ];
+  return (
+    <div
+      className={clsx(
+        "absolute bottom-5 left-5 hidden flex-col gap-1.5 transition-opacity duration-500 lg:flex sm:left-7",
+        show ? "opacity-100" : "pointer-events-none opacity-0",
+      )}
+    >
+      <div className="text-[10.5px] font-medium uppercase tracking-[0.24em] text-white/35">Connected</div>
+      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-1.5 backdrop-blur-xl" style={{ maxWidth: 300 }}>
+        {items.map((c) => (
+          <span
+            key={c.name}
+            title={`${c.name}: ${c.on ? c.what : "not connected yet"}`}
+            className={clsx(
+              "inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[11.5px] font-medium",
+              c.on ? "bg-white/[0.1] text-white/85" : "text-white/30",
+            )}
+          >
+            <span className={clsx("size-1.5 rounded-full", c.on ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-white/20")} />
+            {c.name}
+          </span>
+        ))}
+        <a
+          href="https://github.com/emilemoyson/penthouse/issues/new?title=Connector%20request"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 rounded-xl border border-dashed border-white/15 px-2.5 py-1.5 text-[11.5px] text-white/40 transition hover:border-white/35 hover:text-white/75"
+        >
+          <Plus size={11} /> Request a connector
+        </a>
+      </div>
     </div>
   );
 }
