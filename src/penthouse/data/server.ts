@@ -103,7 +103,7 @@ export async function getProfessionalData(today = todayISO()): Promise<Professio
       }
     : { source: "sample", items: sampleEmails(today) };
 
-  // Calendar: Google Calendar via its secret iCal address (GOOGLE_CALENDAR_ICS_URL). The hourly email task adds to it.
+  // Calendar: Google Calendar via its secret iCal address (GOOGLE_CALENDAR_ICS_URL), plus extra feeds (EXTRA_CALENDAR_ICS_URLS). The hourly email task adds to it.
   const weekStart = mondayOf(today);
   const gcal = await loadGoogleEvents(weekStart, addDays(weekStart, 34));
   const calendar: ProfessionalData["calendar"] = { source: gcal ? "live" : "sample", weekStart, items: gcal ?? [] };

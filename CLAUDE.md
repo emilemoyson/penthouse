@@ -25,7 +25,7 @@ Where things stand and what's next: `docs/STATUS.md`. Update it when a topic is 
 | `apps-script/JobsFeed.gs` | Google Sheet feed (unused by the dashboard since the Jobs tab was removed; leave it alone) |
 | `automation/calendar-agent.md` | Prompt for the hourly email task: Gmail + Outlook → Google Calendar, and to-dos read from every email |
 | `automation/morning-inbox.md` | Prompt for the morning Gmail summaries task |
-| `src/lib/gcal.ts` | Reads Google Calendar (secret iCal URL) for the calendar panel |
+| `src/lib/gcal.ts` | Reads Google Calendar and any extra iCal feeds (secret URLs) for the calendar panel |
 
 ## Run and check
 
@@ -39,7 +39,7 @@ Local Postgres is Homebrew on port 5433 (`postgres://localhost:5433/hub`); an ED
 
 ## Env vars
 
-`APP_PASSWORD`, `DATABASE_URL`, `JOBS_SHEET_URL`, `JOBS_SHEET_TOKEN`, `INGEST_TOKEN` (bearer for `/api/ingest/:kind`), `ANTHROPIC_API_KEY` (optional, receipts and macro estimates), `GOOGLE_CALENDAR_ICS_URL` (secret iCal address, the only calendar source; the old `events` table is no longer read). All in `.env.local`; the Python scripts use `scripts/.env`.
+`APP_PASSWORD`, `DATABASE_URL`, `JOBS_SHEET_URL`, `JOBS_SHEET_TOKEN`, `INGEST_TOKEN` (bearer for `/api/ingest/:kind`), `ANTHROPIC_API_KEY` (optional, receipts and macro estimates), `GOOGLE_CALENDAR_ICS_URL` (secret iCal address of the Google calendar; the old `events` table is no longer read), `EXTRA_CALENDAR_ICS_URLS` (optional, comma separated iCal links such as Blackboard or iCloud calendars). All in `.env.local`; the Python scripts use `scripts/.env`.
 
 ## Agents and skills
 
