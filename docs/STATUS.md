@@ -6,6 +6,15 @@ Updated 2026-11-04. Everything runs locally (`npm run dev`, Postgres on 5433). J
 
 The IENYC "Be a Master in Claude" plan is in `docs/ROADMAP.md` (5 items, one session each, deadline Sun Nov 15, moved from Thu Nov 12).
 
+### Item 2: Skills, done (branch `skills` off `mcp-server`, not committed yet, 2026-11-13)
+
+- `.claude/skills/weekly-food-report/`: calls `weekly_summary` once and writes a short report (spend vs budget, protein per dollar, cost per meal home vs out, waste, one recommendation). The numbers come from the MCP server, the skill only maps and writes. `reference.md` says what to write when data is missing. Tools: the penthouse MCP tools and Read.
+- `.claude/skills/verify/`: `verify.sh` runs tsc, build, `pytest mcp`, then a smoke test on a fresh `hub_test` (401 without token, 422 on a bad body, a re-send leaves one row, the real `hub` stays untouched). `--quick` skips the build and the smoke test. It reads `INGEST_TOKEN` without printing it, and leaves a fresh `hub_test` if one was there before. Tools: the script and Read.
+- `.claude/skills/new-ingest-kind/`: a checklist modelled on `sleep` (zod schema, table, upsert, loader and panel, README example), ending with `verify`. `reference.md` maps each piece to its file.
+- Checked: all 9 trigger prompts behave as expected (`docs/skills-triggers.md`). The full `verify` run passes.
+- Later: when item 3 adds `nutrition-analyst`, hand the numbers step of `weekly-food-report` to it. When item 4 adds JS tests, add them to `verify.sh`.
+- Next: item 3 (subagents) in a new session.
+
 ### Item 1: MCP server, done (branch `mcp-server`, committed and pushed 2026-11-13)
 
 - `mcp/`: Python server on the `mcp` SDK 2.3 (`MCPServer`, the new name for FastMCP). 7 tools, 2 resources, the `weekly-review` prompt. Details, setup and 3 example conversations in `mcp/README.md`.
@@ -14,7 +23,6 @@ The IENYC "Be a Master in Claude" plan is in `docs/ROADMAP.md` (5 items, one ses
 - Findings: sampling, roots and client logging are deprecated in the MCP 2026-07-28 spec (SEP-2577), but the SDK still supports them. The server uses them through `Resolve(...)`, which works on old and new protocol versions. Claude Code doesn't support sampling, so the two sampling tools fall back to numbers plus a note there. Claude Code does share roots (the project folder).
 - `mcp/.env` (git-ignored) points at `hub_test`, which is kept so Emile can try the server in Claude Code. To use real data later: apply the role SQL to `hub` (or Neon) and change the URL. When done testing: `dropdb -p 5433 hub_test`.
 - The 3D work is committed locally on `kitchen-sample` as `a18cc71` (WIP, not pushed).
-- Next: item 2 (skills) in a new session. `weekly-food-report` should use `weekly_summary` and `get_meals`.
 
 ## 3D home: kitchen sample, "clean and Apple-like" (2026-10-20, branch `kitchen-sample`, not committed)
 
