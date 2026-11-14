@@ -9,7 +9,7 @@ The IENYC "Be a Master in Claude" plan is in `docs/ROADMAP.md` (5 items, one ses
 ### Office fixes (branch `office-fixes`, 2026-11-13)
 
 - Removed the Jobs tab and job goals, and the whole Habits page (`src/app/(app)/habits`, `src/lib/habits.ts`). Database tables are untouched. Bedroom and Office now have glass panels only: a zone's `href` in `src/penthouse/zones.ts` is optional, and a room without one has no "Full view" button and no scroll-to-rise. Kitchen, Gym keep theirs.
-- `automation/calendar-agent.md` synced with the live hourly task. To-dos arriving on the live site: not confirmed yet.
+- To-dos reach the live site: confirmed 2026-11-14 after rotating INGEST_TOKEN (Vercel, .env.local, scripts/.env). The hourly task must use the new prompt in automation/calendar-agent.md, which loads the token from scripts/.env.
 
 ### Item 3: Subagents, done, awaiting commit (branch `subagents` off `skills`, 2026-11-13)
 

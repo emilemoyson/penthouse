@@ -7,6 +7,7 @@ import { ChevronsDown, X, LayoutGrid } from "lucide-react";
 import { useZone, type ZoneId } from "./store";
 import { ZONES, zoneById } from "./zones";
 import type { PenthouseData } from "./data/types";
+import { SITE_NAME } from "@/lib/site";
 import { labelEls } from "./labels";
 import { FitnessPanel, ProfessionalPanel, SleepPanel } from "./overlays/panels";
 import { NutritionPanel } from "./overlays/kitchen";
@@ -112,7 +113,7 @@ function Hud() {
     <>
       {/* top-left: identity + clock */}
       <div className={clsx("pointer-events-none absolute left-5 top-5 transition-opacity duration-500 sm:left-7 sm:top-6", free ? "opacity-100" : "opacity-0 sm:opacity-100")}>
-        <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/40">Emile&apos;s penthouse</div>
+        <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/40">{SITE_NAME}</div>
         <div className="mt-1 flex flex-col">
           <Clock />
         </div>
@@ -120,7 +121,7 @@ function Hud() {
 
       {/* top-right: classic pages */}
       <a
-        href="/training"
+        href="/dashboard"
         className={clsx(
           "absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[12px] font-medium text-white/70 backdrop-blur-md transition hover:bg-white/[0.12] hover:text-white sm:right-7 sm:top-6",
           free ? "opacity-100" : "pointer-events-none opacity-0",

@@ -2,7 +2,7 @@
 
 Prompt for the Claude desktop scheduled task "Email → Calendar + To-dos (Gmail + Outlook)" (`trig_01JATiHxRstnTWu9D8mWAsz1`, runs on the MacBook Air hourly, 7:07 to 23:07 New York time). It replaced the daily "IENYC Daily Sync". Last synced from the live task on 2026-11-13. Edit here first, then paste into the task.
 
-`INGEST_TOKEN` is a placeholder: the real value is pasted into the task in the desktop app, never committed. `SITE_URL` is the Vercel URL, `https://penthouse-ashen.vercel.app`.
+The token is not in the prompt. The task loads it at run time from `~/code/penthouse/scripts/.env` (git-ignored), so rotating it only means updating that file and Vercel. `SITE_URL` is the Vercel URL, `https://penthouse-ashen.vercel.app`.
 
 The site reads Google Calendar through its iCal feed (`src/lib/gcal.ts`), so anything this task adds shows on the penthouse calendar within about 5 minutes. The `#kind` tag in the description sets the colour there.
 
@@ -15,7 +15,7 @@ GOAL: two separate jobs, done on every email you read.
 (b) To-dos: anything Emile has to do goes on the to-do list of their dashboard, whether or not it has a date, a meeting or a calendar entry. Most to-dos have no date. Never decide to-dos from what you added to the calendar; read each email for them on its own.
 
 SITE_URL = https://penthouse-ashen.vercel.app
-INGEST_TOKEN = PASTE_TOKEN_HERE
+The ingest token lives in ~/code/penthouse/scripts/.env as INGEST_TOKEN. Load it only inside the shell command below; never read it into the conversation or print it.
 
 STEP 1: Gmail (Gmail connector):
 Search `newer_than:3d -label:Penthouse/Processed`. The label is what stops repeats, so a wide window is safe and catches anything a missed run skipped. Page through all results. Read each relevant thread in full with get_thread (search results only preview the oldest messages). Skip promotions, newsletters, receipts and automated notifications unless they contain a date or ask Emile to do something. Appointment confirmations from government offices, schools, landlords, banks and similar DO count (for example an SSA appointment confirmation is a calendar event). A plain question like "will you be there at 1 pm on Thursday?" is a meeting: put it on the calendar.
@@ -45,7 +45,8 @@ STEP 4: To-dos (dashboard Office tab). Go through every email from steps 1 and 2
 - How to POST (shell):
 
 ```bash
-curl -s -w "\nHTTP %{http_code}\n" -X POST "SITE_URL/api/ingest/todos" -H "Authorization: Bearer INGEST_TOKEN" -H "Content-Type: application/json" -d @/tmp/todos.json
+set -a; . ~/code/penthouse/scripts/.env; set +a
+curl -s -w "\nHTTP %{http_code}\n" -X POST "SITE_URL/api/ingest/todos" -H "Authorization: Bearer $INGEST_TOKEN" -H "Content-Type: application/json" -d @/tmp/todos.json
 ```
 
   It should return `{"ok":true,...}`. If it returns 422, fix the JSON and retry once. If it returns 401, the token is wrong: put "To-dos not saved: INGEST_TOKEN does not match the site" first in the summary and send one push notification. If the site can't be reached, list the to-dos in the final summary instead. Never print the token in the summary.

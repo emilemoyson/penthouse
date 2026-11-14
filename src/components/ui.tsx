@@ -2,16 +2,52 @@ import Link from "next/link";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-export function PageHeader({ title, sub, actions }: { title: string; sub?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ title, sub, actions, eyebrow }: { title: string; sub?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        <h1 className="text-[26px] font-semibold tracking-[-0.02em] leading-tight">{title}</h1>
-        {sub && <p className="mt-1 text-[14px] text-ink-2">{sub}</p>}
+        {eyebrow && <div className="mb-1 text-[11.5px] font-medium uppercase tracking-[0.16em] text-ink-3">{eyebrow}</div>}
+        <h1 className="font-serif text-[32px] font-medium leading-[1.05] tracking-[-0.015em]">{title}</h1>
+        {sub && <p className="mt-1.5 text-[14px] text-ink-2">{sub}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
+}
+
+/** Sub-tabs under the page header. Each tab is a link to `?tab=id`, so the server renders only that tab. */
+export function RoomTabs({ base, items, active }: { base: string; items: { id: string; label: string; count?: number }[]; active: string }) {
+  return (
+    <nav className="mb-5 flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]" aria-label="Sections">
+      {items.map((it, i) => {
+        const on = it.id === active;
+        return (
+          <Link
+            key={it.id}
+            href={i === 0 ? base : `${base}?tab=${it.id}`}
+            scroll={false}
+            prefetch
+            aria-current={on ? "page" : undefined}
+            className={clsx(
+              "tab-link -mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 pb-2.5 pt-1 text-[14px] font-medium",
+              on ? "border-accent text-ink" : "border-transparent text-ink-3 hover:text-ink",
+            )}
+          >
+            {it.label}
+            {it.count != null && it.count > 0 && (
+              <span className={clsx("tnum rounded-full px-1.5 text-[11px]", on ? "bg-accent-soft text-accent-ink" : "bg-surface-2 text-ink-3")}>{it.count}</span>
+            )}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Reads `?tab=` against the allowed ids; falls back to the first. */
+export function pickTab<T extends string>(raw: string | string[] | undefined, ids: readonly T[]): T {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return (ids as readonly string[]).includes(v ?? "") ? (v as T) : ids[0];
 }
 
 export function Card({
@@ -40,7 +76,7 @@ export function Card({
       {(title || action) && (
         <div className={clsx("flex flex-wrap items-start justify-between gap-3", pad ? "mb-4" : "px-5 pt-5 sm:px-6 sm:pt-6 mb-4")}>
           <div className="min-w-0">
-            {title && <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>}
+            {title && <h2 className="text-[15px] font-semibold tracking-[-0.005em]">{title}</h2>}
             {sub && <p className="mt-0.5 text-[13px] text-ink-3 max-w-[68ch]">{sub}</p>}
           </div>
           {action}
@@ -70,7 +106,7 @@ export function Stat({
     <div className="min-w-0 rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-[var(--shadow)]">
       <div className="text-[12.5px] font-medium text-ink-3">{label}</div>
       <div className="mt-1.5 flex items-baseline gap-1">
-        <span className="text-[28px] font-semibold tracking-[-0.02em] leading-none tnum">{value}</span>
+        <span className="font-serif text-[30px] font-medium tracking-[-0.02em] leading-none tnum">{value}</span>
         {unit && <span className="text-[13px] text-ink-3">{unit}</span>}
       </div>
       {progress != null && (
