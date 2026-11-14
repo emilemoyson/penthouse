@@ -257,3 +257,13 @@ html {
   body:has([data-fit]) { overflow: hidden; }
 }
 .scroll-soft { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+/* studio walkthrough caption */
+@keyframes tourIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tourBar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}

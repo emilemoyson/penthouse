@@ -8,6 +8,7 @@ import { Character, type Action } from "../characters/Character";
 import { GlowLight } from "../scene/lights";
 import { BackKitchen, FruitBowl, Fridge, Island, Stool } from "../look/furniture";
 import { C, Pendant, Plant } from "../look/decor";
+import { useAmbient } from "../ambient";
 
 /**
  * Scripted walk loop: prep at the island → walk to the fridge → grab water → walk back.
@@ -83,13 +84,15 @@ function Walker() {
 /** 🍳 Kitchen: fluted oak island with marble top, oak stools, sage cabinets with open shelves and a warm strip, globe pendants. */
 export function Kitchen() {
   const glow = useGlow("kitchen", 1);
+  // shelves and fruit bowl empty as the pantry runs low
+  const fill = useAmbient((s) => s.pantryFill);
   return (
     <Zone id="kitchen" hitbox={{ size: [4.8, 2.4, 3.8], position: [6.3, 1.2, 2.3] }}>
       <Island position={[4.6, 0, 2.6]} />
       {[3.8, 4.6, 5.4].map((x) => (
         <Stool key={x} position={[x, 0, 3.5]} />
       ))}
-      <FruitBowl position={[5.15, 0.93, 2.55]} />
+      <FruitBowl position={[5.15, 0.93, 2.55]} fill={fill} />
       <Plant kind="herb" position={[3.75, 0.93, 2.45]} scale={1.5} seed={21} pot={C.cream} />
       <Plant kind="herb" position={[3.95, 0.93, 2.7]} scale={1.3} seed={22} pot={C.terracotta} />
       <mesh position={[4.35, 0.94, 2.45]} rotation-y={0.2} castShadow>
@@ -97,7 +100,7 @@ export function Kitchen() {
         <meshStandardMaterial color={C.oakLight} roughness={0.6} />
       </mesh>
 
-      <BackKitchen position={[8.45, 0, 1.6]} />
+      <BackKitchen position={[8.45, 0, 1.6]} fill={fill} />
       <Fridge position={[8.45, 0, 3.35]} />
       <Plant kind="olive" position={[8.4, 0, 4.4]} scale={1.0} seed={23} pot={C.cream} />
 

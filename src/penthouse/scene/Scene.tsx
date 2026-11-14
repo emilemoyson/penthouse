@@ -10,6 +10,7 @@ import { Room } from "./Room";
 import { CameraRig, focusPoint } from "./CameraRig";
 import { LabelProjector } from "./Zone";
 import { ShadowThrottle } from "./lights";
+import { Daylight } from "./Daylight";
 import { OVERVIEW } from "../zones";
 import { Bed } from "../zones/Bed";
 import { Desk } from "../zones/Desk";
@@ -65,19 +66,8 @@ export default function Scene() {
       {/* ---------- no bright global light: a warm whisper of ambient, the rest is lamps ---------- */}
       <ambientLight intensity={high ? 0.12 : 0.2} color="#ffd8b0" />
       <hemisphereLight args={["#8a7aa8", "#2a1c14", high ? 0.25 : 0.4]} />
-      {/* faint moonlight through the glass (casts the mullion shadows on high) */}
-      <directionalLight
-        position={[-6, 10, -16]}
-        intensity={0.3}
-        color="#9fb2ff"
-        castShadow={high}
-        shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-11}
-        shadow-camera-right={11}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-8}
-        shadow-bias={-0.0005}
-      />
+      {/* moonlight or daylight through the glass, by New York time */}
+      <Daylight />
       {/* camera-side fill so silhouettes never go fully black */}
       <pointLight position={[2, 5, 9]} intensity={high ? 3 : 4.5} color="#7a5a48" distance={18} decay={2} />
 
