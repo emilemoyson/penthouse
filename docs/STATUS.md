@@ -6,7 +6,7 @@ Updated 2026-11-04. Everything runs locally (`npm run dev`, Postgres on 5433). J
 
 The IENYC "Be a Master in Claude" plan is in `docs/ROADMAP.md` (5 items, one session each, deadline Sun Nov 15, moved from Thu Nov 12).
 
-### Item 2: Skills, done (branch `skills` off `mcp-server`, not committed yet, 2026-11-13)
+### Item 2: Skills, done (branch `skills` off `mcp-server`, committed and pushed 2026-11-13)
 
 - `.claude/skills/weekly-food-report/`: calls `weekly_summary` once and writes a short report (spend vs budget, protein per dollar, cost per meal home vs out, waste, one recommendation). The numbers come from the MCP server, the skill only maps and writes. `reference.md` says what to write when data is missing. Tools: the penthouse MCP tools and Read.
 - `.claude/skills/verify/`: `verify.sh` runs tsc, build, `pytest mcp`, then a smoke test on a fresh `hub_test` (401 without token, 422 on a bad body, a re-send leaves one row, the real `hub` stays untouched). `--quick` skips the build and the smoke test. It reads `INGEST_TOKEN` without printing it, and leaves a fresh `hub_test` if one was there before. Tools: the script and Read.
