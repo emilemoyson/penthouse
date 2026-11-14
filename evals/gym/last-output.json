@@ -1,0 +1,1680 @@
+{
+  "splits": [
+    {
+      "kind": "push",
+      "sessionCount": 8,
+      "sessions": [
+        {
+          "n": 1,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Flat DB press",
+              "sets": [
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Incline DB press",
+              "sets": [
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 6,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Shoulder press",
+              "sets": [
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Flat DB press",
+              "sets": [
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Incline DB press",
+              "sets": [
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 6,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Shoulder press",
+              "sets": [
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Cable lateral raise",
+              "sets": [
+                {
+                  "weight": 12.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": 11
+                },
+                {
+                  "weight": 12.5,
+                  "unit": "lb",
+                  "reps": 14,
+                  "alt": 14
+                }
+              ]
+            },
+            {
+              "name": "Pec fly (machine)",
+              "sets": [
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 3,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Flat DB press",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Incline DB press",
+              "sets": [
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Shoulder press",
+              "sets": [
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Cable lateral raise",
+              "sets": [
+                {
+                  "weight": 12.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": 12
+                },
+                {
+                  "weight": 12.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": 12
+                }
+              ]
+            },
+            {
+              "name": "Tricep pushdown",
+              "sets": [
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 4,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Flat DB press",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Incline DB press",
+              "sets": [
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Shoulder press",
+              "sets": [
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 40,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Cable lateral raise",
+              "sets": [
+                {
+                  "weight": 12.5,
+                  "unit": "lb",
+                  "reps": 14,
+                  "alt": 14
+                },
+                {
+                  "weight": 12.5,
+                  "unit": "lb",
+                  "reps": 14,
+                  "alt": 14
+                }
+              ]
+            },
+            {
+              "name": "Tricep pushdown",
+              "sets": [
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 5,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Flat DB press",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Incline DB press",
+              "sets": [
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 6,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 6,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Shoulder press",
+              "sets": [
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Cable lateral raise",
+              "sets": [
+                {
+                  "weight": 15,
+                  "unit": "lb",
+                  "reps": 14,
+                  "alt": 14
+                },
+                {
+                  "weight": 15,
+                  "unit": "lb",
+                  "reps": 13,
+                  "alt": 11
+                }
+              ]
+            },
+            {
+              "name": "Pec fly (machine)",
+              "sets": [
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Tricep pushdown",
+              "sets": [
+                {
+                  "weight": 32.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 32.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 32.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Abs",
+              "sets": [
+                {
+                  "weight": 35,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 35,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 35,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 6,
+          "notes": "Shoulder press included a drop set.",
+          "exercises": [
+            {
+              "name": "Flat DB press",
+              "sets": [
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Incline DB press",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 5,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Shoulder press",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 5,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Cable lateral raise",
+              "sets": [
+                {
+                  "weight": 15,
+                  "unit": "lb",
+                  "reps": 15,
+                  "alt": 15
+                },
+                {
+                  "weight": 15,
+                  "unit": "lb",
+                  "reps": 15,
+                  "alt": 11
+                }
+              ]
+            },
+            {
+              "name": "Pec fly (machine)",
+              "sets": [
+                {
+                  "weight": 95,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 95,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 95,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Tricep pushdown",
+              "sets": [
+                {
+                  "weight": 35,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 35,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 35,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Abs",
+              "sets": [
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 7,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Flat DB press",
+              "sets": [
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Incline DB press",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 5,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 6,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Shoulder press",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Cable lateral raise",
+              "sets": [
+                {
+                  "weight": 15,
+                  "unit": "lb",
+                  "reps": 15,
+                  "alt": 15
+                },
+                {
+                  "weight": 15,
+                  "unit": "lb",
+                  "reps": 15,
+                  "alt": 15
+                }
+              ]
+            },
+            {
+              "name": "Pec fly (machine)",
+              "sets": [
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 105,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 110,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Tricep pushdown",
+              "sets": [
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Abs",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 13,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 8,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Flat DB press",
+              "sets": [
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Incline DB press",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 7,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 6,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 5,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Shoulder press",
+              "sets": [
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 55,
+                  "unit": "lb",
+                  "reps": 6,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Cable lateral raise",
+              "sets": [
+                {
+                  "weight": 17.5,
+                  "unit": "lb",
+                  "reps": 14,
+                  "alt": 14
+                },
+                {
+                  "weight": 17.5,
+                  "unit": "lb",
+                  "reps": 14,
+                  "alt": 13
+                }
+              ]
+            },
+            {
+              "name": "Pec fly (machine)",
+              "sets": [
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 6,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Tricep pushdown",
+              "sets": [
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 45,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "pull",
+      "sessionCount": 6,
+      "sessions": [
+        {
+          "n": 1,
+          "notes": "Pull-up competition vs a friend (lost).",
+          "exercises": [
+            {
+              "name": "Pull-up",
+              "sets": [
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Close-grip lat pulldown",
+              "sets": [
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Reverse pec fly",
+              "sets": [
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Seated row (machine)",
+              "sets": [
+                {
+                  "weight": 75,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 75,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 75,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Face pull",
+              "sets": [
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 37.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Dumbbell (unnamed)",
+              "sets": [
+                {
+                  "weight": 25,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 25,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Pull-up",
+              "sets": [
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Close-grip lat pulldown",
+              "sets": [
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Seated row (machine)",
+              "sets": [
+                {
+                  "weight": 75,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 85,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Face pull",
+              "sets": [
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Dumbbell (unnamed)",
+              "sets": [
+                {
+                  "weight": 25,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 25,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 3,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Pull-up",
+              "sets": [
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Close-grip lat pulldown",
+              "sets": [
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Seated row (machine)",
+              "sets": [
+                {
+                  "weight": 90,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 90,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 90,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Face pull",
+              "sets": [
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 42.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Dumbbell (unnamed)",
+              "sets": [
+                {
+                  "weight": 30,
+                  "unit": "lb",
+                  "reps": 13,
+                  "alt": null
+                },
+                {
+                  "weight": 30,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 30,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 4,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Pull-up",
+              "sets": [
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Close-grip lat pulldown",
+              "sets": [
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 8,
+                  "alt": null
+                },
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Seated row (machine)",
+              "sets": [
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 100,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Face pull",
+              "sets": [
+                {
+                  "weight": 47.5,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 47.5,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 47.5,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Dumbbell (unnamed)",
+              "sets": [
+                {
+                  "weight": 30,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 25,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 5,
+          "notes": "",
+          "exercises": [
+            {
+              "name": "Pull-up",
+              "sets": [
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 12,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 0,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Close-grip lat pulldown",
+              "sets": [
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 8.5,
+                  "alt": null
+                },
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Seated row (machine)",
+              "sets": [
+                {
+                  "weight": 110,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 110,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 110,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Face pull",
+              "sets": [
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                },
+                {
+                  "weight": 50,
+                  "unit": "lb",
+                  "reps": 11,
+                  "alt": null
+                }
+              ]
+            },
+            {
+              "name": "Dumbbell (unnamed)",
+              "sets": [
+                {
+                  "weight": 30,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 30,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                },
+                {
+                  "weight": 30,
+                  "unit": "lb",
+                  "reps": 10,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "n": 6,
+          "notes": "Did reverse pec fly instead of face pull.",
+          "exercises": [
+            {
+              "name": "Close-grip lat pulldown",
+              "sets": [
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                },
+                {
+                  "weight": 115,
+                  "unit": "lb",
+                  "reps": 9,
+                  "alt": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ideas": [
+    "Chest press",
+    "Pectoral fly",
+    "Cable chest fly"
+  ],
+  "skipped": [
+    "37.5lb x is 11 x 10 x 7"
+  ]
+}

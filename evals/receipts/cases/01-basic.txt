@@ -1,0 +1,11 @@
+Lidl
+Made-up receipt for the eval
+11/02/2026 10:15
+Chicken thighs 7.99 F
+2.1 lb @ $3.80/lb
+BANANAS 1.29 F
+Lidl Plus discount -0.50 F
+Paper towels 3.99 T
+Total 13.27
+Card **** 4321
+Client ID 99887766

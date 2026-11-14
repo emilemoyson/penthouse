@@ -53,6 +53,11 @@ jobs:
           python -m pip install -e "mcp[dev]"
           TEST_RO_DATABASE_URL="postgres://penthouse_ro:ci-ro@localhost:5432/hub_test" \
           TEST_OWNER_DATABASE_URL="$DATABASE_URL" pytest mcp -q
+      - name: Receipt parser eval (no model, no secrets)
+        run: |
+          python evals/receipts/score.py > /dev/null
+          git diff --exit-code evals/receipts/results.json
+          python evals/gym/score.py --selftest
       - name: Server log on failure
         if: failure()
         run: tail -50 server.log || true

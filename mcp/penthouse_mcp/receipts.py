@@ -17,10 +17,10 @@ from .kitchen import TZ
 
 SUFFIXES = {".txt", ".html", ".htm"}
 
-PAYMENT = re.compile(r"^(Card|Cash|Change|Total Savings|barcode|Client ID|Merchant ID)\b", re.I)
+PAYMENT = re.compile(r"^(Card|Cash|Change|Total Savings|barcode|Client ID|Merchant ID|Visa|Mastercard|Amex|Discover|Debit|Credit|Auth|Approval|Tender)\b", re.I)
 ITEM = re.compile(r"^(?P<name>.+?) (?P<price>-?\d+\.\d{2}) (?P<flags>[A-Z]{1,3})$")
-WEIGHT = re.compile(r"^(?P<qty>\d+(?:\.\d+)?) (?P<unit>lb|kg|oz) @ \$ ?[\d.]+/(?:lb|kg|oz)$", re.I)
-COUNT = re.compile(r"^(?P<qty>\d+) @ \$ ?[\d.]+$")
+WEIGHT = re.compile(r"^(?P<qty>\d+(?:\.\d+)?) (?P<unit>lb|kg|oz) @ \$? ?[\d.]+/(?:lb|kg|oz)$", re.I)
+COUNT = re.compile(r"^(?P<qty>\d+) @ \$? ?[\d.]+$")
 DISCOUNT = re.compile(r"^(?P<name>.*(?:discount|coupon|savings).*?) (?P<amount>-\d+\.\d{2})(?: [A-Z]{1,3})?$", re.I)
 DATE_US = re.compile(r"\b(?P<m>\d{1,2})/(?P<d>\d{1,2})/(?P<y>\d{2}|\d{4})\b")
 DATE_ISO = re.compile(r"\b(?P<y>20\d{2})-(?P<m>\d{2})-(?P<d>\d{2})\b")

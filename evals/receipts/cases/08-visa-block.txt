@@ -1,0 +1,9 @@
+Lidl
+Made-up receipt for the eval, payment block that does not start with "Card"
+11/13/2026 19:20
+RICE JASMINE 4.29 F
+FROZEN PEAS 1.89 F
+Total 6.18
+VISA ****9999
+Auth code 123456
+Approval 778899
