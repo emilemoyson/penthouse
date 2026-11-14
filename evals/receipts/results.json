@@ -1,0 +1,73 @@
+{
+  "cases": 8,
+  "truth_items": 19,
+  "item_recall": 0.947,
+  "item_precision": 0.947,
+  "price_match": 1.0,
+  "qty_unit_match": 1.0,
+  "date_match": 1.0,
+  "card_data_leaks": 0,
+  "unrecognised_routed_to_claude": "1/1",
+  "per_case": [
+    {
+      "case": "01-basic.txt",
+      "missed": [],
+      "wrong": [],
+      "extra": [],
+      "leaks": []
+    },
+    {
+      "case": "02-count-and-ft.txt",
+      "missed": [],
+      "wrong": [],
+      "extra": [],
+      "leaks": []
+    },
+    {
+      "case": "03-weights.txt",
+      "missed": [],
+      "wrong": [],
+      "extra": [],
+      "leaks": []
+    },
+    {
+      "case": "04-html.html",
+      "missed": [],
+      "wrong": [],
+      "extra": [],
+      "leaks": []
+    },
+    {
+      "case": "05-unrecognised.txt",
+      "missed": [],
+      "wrong": [],
+      "extra": [],
+      "leaks": []
+    },
+    {
+      "case": "06-discount-chain.txt",
+      "missed": [],
+      "wrong": [],
+      "extra": [],
+      "leaks": []
+    },
+    {
+      "case": "07-hard-layouts.txt",
+      "missed": [
+        "ORGANIC BABY SPINACH ENTREE"
+      ],
+      "wrong": [],
+      "extra": [
+        "ENTREE"
+      ],
+      "leaks": []
+    },
+    {
+      "case": "08-visa-block.txt",
+      "missed": [],
+      "wrong": [],
+      "extra": [],
+      "leaks": []
+    }
+  ]
+}

@@ -93,3 +93,9 @@ Plan: `~/.claude/plans/can-you-please-help-rustling-scott.md`. All work is commi
 - The scroll-into-the-sky view (`src/penthouse/rise.ts`): Emile has tweaks in mind; ask.
 - Strava / Garmin import for runs and sleep.
 - Claude Code setup, roadmap steps 3 to 6: project skills (`verify`, `test-on-copy`, `ship`, `new-ingest-kind`, `lidl`), subagents (`verifier`, `sync-debugger`), then the scheduled Gmail agent.
+
+## Evals and tests (2026-11-14)
+
+- vitest unit and ingest integration tests, wired into `verify.sh`; CI on GitHub Actions (PR #1, green).
+- `evals/`: receipt parser eval (8 cases, free, run in CI) and gym note parser eval (18 checks, 3 runs, calls headless Claude Code). `bash evals/run.sh` rewrites `evals/results.md`. The eval found a card-data leak (payment block starting with a card brand) and a missed `$`-less weight line; both fixed. Not done: a Claude photo eval for receipts (needs screenshots and API spend).
+- Hand-in docs: `docs/MASTER-IN-CLAUDE.md` (topic to file map; course names still TODO, not in the repo), demo seed `scripts/seed_demo.py` plus README "Try it without my data". Secret scan of git history (regex, no gitleaks installed): nothing found, only local and dummy URLs. Plugin not built.

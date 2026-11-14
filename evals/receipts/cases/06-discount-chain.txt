@@ -1,0 +1,10 @@
+Lidl
+Made-up receipt for the eval
+11/12/2026 12:00
+BUTTER 4.99 F
+Lidl Plus discount -1.00 F
+Lidl Plus discount -0.50 F
+PASTA 1.09 F
+DEPOSIT 0.10 T
+Total 4.58
+Card **** 3333

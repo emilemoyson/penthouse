@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hub_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Dummy values: nothing here is a real secret and no real service is reached.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/hub_test
+      APP_PASSWORD: ci-password
+      INGEST_TOKEN: ci-ingest-token-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npx vitest run
+      - name: Build
+        run: npm run build
+      - name: Ingest integration tests (production server on a throwaway database)
+        run: |
+          npx next start -p 3001 > server.log 2>&1 &
+          for i in $(seq 1 40); do curl -s -o /dev/null http://localhost:3001/login && break; sleep 1; done
+          INGEST_BASE_URL=http://localhost:3001 INGEST_TOKEN_FOR_TESTS="$INGEST_TOKEN" npx vitest run tests/ingest.int.test.ts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Must come after the ingest step: the app creates the tables on its first query, and the grants need them.
+      - name: MCP server tests
+        run: |
+          psql "$DATABASE_URL" -q -f mcp/sql/readonly_role.sql -c "alter role penthouse_ro password 'ci-ro'"
+          # the MCP tests read a pantry, so a fresh database needs one item
+          psql "$DATABASE_URL" -q -c "insert into pantry_items (name, place, qty, qty_start, unit, bought) values ('CI chicken', 'fridge', 500, 500, 'g', current_date::text)"
+          python -m pip install -e "mcp[dev]"
+          TEST_RO_DATABASE_URL="postgres://penthouse_ro:ci-ro@localhost:5432/hub_test" \
+          TEST_OWNER_DATABASE_URL="$DATABASE_URL" pytest mcp -q
+      - name: Receipt parser eval (no model, no secrets)
+        run: |
+          python evals/receipts/score.py > /dev/null
+          git diff --exit-code evals/receipts/results.json
+          python evals/gym/score.py --selftest
+      - name: Server log on failure
+        if: failure()
+        run: tail -50 server.log || true

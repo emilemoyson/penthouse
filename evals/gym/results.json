@@ -1,0 +1,31 @@
+{
+  "runs": 3,
+  "checks": 18,
+  "per_run_passed": [
+    18,
+    18,
+    18
+  ],
+  "failed_runs": 0,
+  "per_check_passes": {
+    "push-count": 3,
+    "pull-count": 3,
+    "push1-db-press": 3,
+    "push3-pec-skipped": 3,
+    "push2-pec-two-sets": 3,
+    "push7-pec-three-weights": 3,
+    "push2-lat-alt": 3,
+    "push4-tricep-typo-not-invented": 3,
+    "push7-abs-trailing-x": 3,
+    "push1-abs-leading-x": 3,
+    "push-include-db-press": 3,
+    "pull1-pullup-bodyweight": 3,
+    "pull1-no-spaces-x": 3,
+    "pull2-seated-rows-mixed": 3,
+    "pull-remark-not-exercise": 3,
+    "pull6-face-pull-remark": 3,
+    "ideas": 3,
+    "no-sets-from-x-weeks": 3
+  },
+  "details": null
+}

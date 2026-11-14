@@ -65,7 +65,7 @@ def receipt_text(raw_html):
     lines = [re.sub(r"[ \t]+", " ", ln).strip() for ln in t.splitlines()]
     out = []
     for ln in lines:
-        if re.match(r"^(Card|Cash|Change|Total Savings|barcode|Client ID|Merchant ID)\b", ln, re.I):
+        if re.match(r"^(Card|Cash|Change|Total Savings|barcode|Client ID|Merchant ID|Visa|Mastercard|Amex|Discover|Debit|Credit|Auth|Approval|Tender)\b", ln, re.I):
             break
         if ln:
             out.append(ln)
@@ -73,8 +73,8 @@ def receipt_text(raw_html):
 
 
 ITEM = re.compile(r"^(?P<name>.+?) (?P<price>-?\d+\.\d{2}) (?P<flags>[A-Z]{1,3})$")
-WEIGHT = re.compile(r"^(?P<qty>\d+(?:\.\d+)?) (?P<unit>lb|kg|oz) @ \$ ?[\d.]+/(?:lb|kg|oz)$", re.I)
-COUNT = re.compile(r"^(?P<qty>\d+) @ \$ ?[\d.]+$")
+WEIGHT = re.compile(r"^(?P<qty>\d+(?:\.\d+)?) (?P<unit>lb|kg|oz) @ \$? ?[\d.]+/(?:lb|kg|oz)$", re.I)
+COUNT = re.compile(r"^(?P<qty>\d+) @ \$? ?[\d.]+$")
 DISCOUNT = re.compile(r"^(?P<name>.*(?:discount|coupon|savings).*?) (?P<amount>-\d+\.\d{2})(?: [A-Z]{1,3})?$", re.I)
 
 

@@ -13,14 +13,14 @@ step() { printf '\n== %s\n' "$1"; }
 ok()   { printf 'PASS  %s\n' "$1"; }
 bad()  { printf 'FAIL  %s\n' "$1"; FAIL=1; }
 
-step "1/4 TypeScript"
+step "1/5 TypeScript"
 if npx tsc --noEmit >/tmp/verify-tsc.log 2>&1; then ok "tsc"; else bad "tsc (see below)"; tail -30 /tmp/verify-tsc.log; fi
 
 if [[ $QUICK -eq 0 ]]; then
-  step "2/4 Build"
+  step "2/5 Build"
   if npm run build >/tmp/verify-build.log 2>&1; then ok "next build"; else bad "next build (see below)"; tail -40 /tmp/verify-build.log; fi
 else
-  step "2/4 Build (skipped, --quick)"
+  step "2/5 Build (skipped, --quick)"
 fi
 
 # hub_test is shared by the MCP tests and the smoke test: create a fresh copy, clean up on exit.
@@ -45,7 +45,7 @@ elif ! psql "$TEST_URL" -q -f mcp/sql/readonly_role.sql >/tmp/verify-role.log 2>
   bad "read-only role on hub_test"; tail -5 /tmp/verify-role.log
 fi
 
-step "3/4 MCP tests"
+step "3/5 MCP tests"
 if [[ $DB_OK -eq 0 ]]; then
   bad "pytest mcp skipped, no hub_test"
 elif [[ ! -x mcp/.venv/bin/pytest ]]; then
@@ -56,10 +56,16 @@ else
   bad "pytest mcp (see below)"; grep -E "^(FAILED|ERROR)" /tmp/verify-pytest.log | head -10; tail -1 /tmp/verify-pytest.log
 fi
 
+step "4/5 vitest unit tests"
+if npx vitest run >/tmp/verify-vitest.log 2>&1; then ok "vitest ($(grep -E 'Tests ' /tmp/verify-vitest.log | tr -s ' '))"; else bad "vitest (see below)"; tail -30 /tmp/verify-vitest.log; fi
+
 if [[ $QUICK -eq 1 ]]; then
-  step "4/4 hub_test smoke (skipped, --quick)"
+  step "5/5 hub_test smoke (skipped, --quick)"
+elif curl -s -o /dev/null --max-time 2 "http://localhost:$PORT/login"; then
+  step "5/5 Smoke test skipped"
+  bad "port $PORT already answers (a dev server on the real hub?), so nothing was sent to it"
 elif [[ $DB_OK -eq 1 ]]; then
-  step "4/4 Smoke test on hub_test"
+  step "5/5 Smoke test and ingest integration on hub_test"
   DATABASE_URL="$TEST_URL" npx next dev -p $PORT >/tmp/verify-dev.log 2>&1 &
   DEV_PID=$!
   for _ in $(seq 1 60); do curl -s -o /dev/null "http://localhost:$PORT/login" && break; sleep 1; done
@@ -82,8 +88,13 @@ elif [[ $DB_OK -eq 1 ]]; then
     done
     n=$(psql "$TEST_URL" -tAc "select count(*) from sleep_logs where date='1999-01-01' and source='verify'")
     [[ "$n" == "1" ]] && ok "valid ingest lands in hub_test, re-send is idempotent" || bad "expected 1 row in hub_test, found '$n'"
+    if INGEST_BASE_URL="http://localhost:$PORT" INGEST_TOKEN_FOR_TESTS="$TOKEN" npx vitest run tests/ingest.int.test.ts >/tmp/verify-vitest-int.log 2>&1; then
+      ok "vitest ingest integration ($(grep -E 'Tests ' /tmp/verify-vitest-int.log | tr -s ' '))"
+    else
+      bad "vitest ingest integration (see below)"; tail -25 /tmp/verify-vitest-int.log
+    fi
   fi
-  real=$(psql postgres://localhost:5433/hub -tAc "select count(*) from sleep_logs where source='verify'")
+  real=$(psql postgres://localhost:5433/hub -tAc "select (select count(*) from sleep_logs where source in ('verify','vitest')) + (select count(*) from todos where id='vitest-todo-1')")
   [[ "$real" == "0" ]] && ok "real hub database untouched" || bad "found $real verify rows in the REAL hub database"
 fi
 

@@ -14,7 +14,9 @@ import psycopg
 import pytest
 from mcp import Client, types
 
-TEST_DB = "postgres://penthouse_ro@localhost:5433/hub_test"
+TEST_DB = os.environ.get("TEST_RO_DATABASE_URL", "postgres://penthouse_ro@localhost:5433/hub_test")
+TEST_OWNER_DB = os.environ.get("TEST_OWNER_DATABASE_URL", "postgres://localhost:5433/hub_test")
+assert TEST_DB.endswith("/hub_test") and TEST_OWNER_DB.endswith("/hub_test"), "tests only run against hub_test"
 os.environ["PENTHOUSE_RO_DATABASE_URL"] = TEST_DB
 os.environ.pop("INGEST_URL", None)
 
@@ -27,7 +29,7 @@ SAMPLE = (
 
 
 def owner_sql(query: str):
-    with psycopg.connect("postgres://localhost:5433/hub_test", autocommit=True) as c:
+    with psycopg.connect(TEST_OWNER_DB, autocommit=True) as c:
         return c.execute(query).fetchall()
 
 
