@@ -76,6 +76,6 @@ The Kitchen is the showcase room: receipt → Claude → fridge → chat → mea
 | --- | --- | --- | --- |
 | 1 | MCP server | `mcp-server` | done, committed 2026-11-13 |
 | 2 | Skills | `skills` | done, committed 2026-11-13 |
-| 3 | Subagents | | |
+| 3 | Subagents | `subagents` | built, verifier passed; code-reviewer run and one trigger rerun left; not committed (2026-11-13) |
 | 4 | Tests, evals, CI | | |
 | 5 | Plugin and docs | | |

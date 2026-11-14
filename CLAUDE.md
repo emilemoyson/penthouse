@@ -41,6 +41,13 @@ Local Postgres is Homebrew on port 5433 (`postgres://localhost:5433/hub`); an ED
 
 `APP_PASSWORD`, `DATABASE_URL`, `JOBS_SHEET_URL`, `JOBS_SHEET_TOKEN`, `INGEST_TOKEN` (bearer for `/api/ingest/:kind`), `ANTHROPIC_API_KEY` (optional, receipts and macro estimates), `GOOGLE_CALENDAR_ICS_URL` (secret iCal address, the only calendar source; the old `events` table is no longer read). All in `.env.local`; the Python scripts use `scripts/.env`.
 
+## Agents and skills
+
+- After finishing a code change, hand it to the `verifier` agent before saying it works. Don't verify your own work.
+- Before a commit, run the `code-reviewer` agent on the diff. It knows the rules below; prefer it to a generic review.
+- Any request to review, look over or check a diff, branch or changes for bugs or security goes to `code-reviewer`. Don't read the diff yourself.
+- `weekly-food-report` gets its numbers from the `nutrition-analyst` agent. Skills: `verify`, `weekly-food-report`, `new-ingest-kind` in `.claude/skills/`.
+
 ## Rules
 
 - Never commit, print or paste `.env.local` or `scripts/.env`. Check a key exists with `grep -c '^NAME=' file`, never by showing it. Hooks in `.claude/` enforce this.

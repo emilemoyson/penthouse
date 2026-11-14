@@ -6,6 +6,14 @@ Updated 2026-11-04. Everything runs locally (`npm run dev`, Postgres on 5433). J
 
 The IENYC "Be a Master in Claude" plan is in `docs/ROADMAP.md` (5 items, one session each, deadline Sun Nov 15, moved from Thu Nov 12).
 
+### Item 3: Subagents, done, awaiting commit (branch `subagents` off `skills`, 2026-11-13)
+
+- Agents in `.claude/agents/`: `verifier` (sonnet, read-only, runs verify and returns PASS or FAIL), `code-reviewer` (opus, read-only, ranked findings before a commit), `nutrition-analyst` (haiku, two MCP read tools, fixed block of weekly numbers).
+- `.claude/hooks/readonly-bash.mjs` limits the two read-only agents to verify.sh and read-only git. Two code-reviewer runs found bypasses in it (line break; then `git diff --no-index` on secret files, a quoted `--output`, fail-open on crash, `$VAR`); all fixed, tested with allow and deny cases.
+- `weekly-food-report` now gets its numbers from `nutrition-analyst`, with a direct `weekly_summary` fallback. CLAUDE.md has an "Agents and skills" section.
+- Trigger checks: 9 of 9 pass after sharpening the code-reviewer description (round 4, `docs/agents-triggers.md`). Real verifier run: PASS. Real code-reviewer run: found the hook issues above.
+- Left: `.claude/hooks/guard-bash.mjs` (main session) only checks secret paths for commands like cat, so `git diff --no-index /dev/null .env.local` still prints a secret there (`git diff*` is auto-allowed in settings). Small fix, not done in this step. Decide on read-only permission rules in `.claude/settings.json`. Don't commit `automation/.Rhistory`.
+
 ### Item 2: Skills, done (branch `skills` off `mcp-server`, committed and pushed 2026-11-13)
 
 - `.claude/skills/weekly-food-report/`: calls `weekly_summary` once and writes a short report (spend vs budget, protein per dollar, cost per meal home vs out, waste, one recommendation). The numbers come from the MCP server, the skill only maps and writes. `reference.md` says what to write when data is missing. Tools: the penthouse MCP tools and Read.
