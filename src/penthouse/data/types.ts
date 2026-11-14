@@ -29,7 +29,6 @@ export type SleepData = {
   targetMin: number;
 };
 
-export type JobRow = { id: string; company: string; role: string; status: string; applied: string | null; link: string };
 export type EmailSummary = { id: string; receivedAt: string; sender: string; subject: string; bullets: string[]; tag: string; url?: string };
 export type CalendarItem = { date: string; time: string | null; title: string; kind: string; location?: string };
 export type Todo = { id: string; title: string; detail: string; due: string | null; sender: string; done: boolean; url: string | null };
@@ -37,7 +36,6 @@ export type Todo = { id: string; title: string; detail: string; due: string | nu
 export type ProfessionalData = {
   source: Source;
   updatedAt: string;
-  jobs: { ok: boolean; message?: string; rows: JobRow[]; appliedThisWeek: number; weeklyTarget: number; active: number; toApply: number; responseRate: number | null };
   emails: { source: Source; items: EmailSummary[] };
   calendar: { source: Source; weekStart: string; items: CalendarItem[] }; // weekStart: Monday of this week; items cover 5 weeks from it
   todos: { source: Source; items: Todo[] };

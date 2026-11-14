@@ -68,14 +68,14 @@ export const ZONES: ZoneDef[] = [
     labelY: 2.0,
     label: "Office",
     title: "Professional Hub",
-    subtitle: "Job search, inbox and calendar",
+    subtitle: "Inbox, to-dos and calendar",
     key: "2",
     anchor: [4.6, 0, -5.0],
     // swoops over the right shoulder onto the desk
     camera: { position: [6.2, 2.55, -1.75], target: [4.75, 0.85, -5.3] },
     fov: 40,
     color: "#4b93ec",
-    href: "/jobs",
+    href: "/habits",
   },
   {
     id: "gym",

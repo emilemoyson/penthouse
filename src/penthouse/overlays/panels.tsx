@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import clsx from "clsx";
-import { ArrowUpRight, CalendarDays, Check, ChevronLeft, ChevronRight, Inbox, ListTodo, RefreshCw, Table2 } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Check, ChevronLeft, ChevronRight, Inbox, ListTodo, RefreshCw, type LucideIcon } from "lucide-react";
 import type { FitnessData, ProfessionalData, SleepData, Source } from "../data/types";
 import { useFitnessData, useProfessionalData, useSleepData } from "../data/hooks";
 import { toggleTodo } from "../data/actions";
@@ -46,7 +46,7 @@ export function SourceBar({ source, hint, loading, onRefresh }: { source: Source
   );
 }
 
-export function Tabs<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: { id: T; label: string; icon: typeof Table2 }[] }) {
+export function Tabs<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: { id: T; label: string; icon: LucideIcon }[] }) {
   return (
     <div className="flex gap-1 rounded-xl border border-white/[0.08] bg-black/20 p-1">
       {items.map((t) => (
@@ -142,42 +142,23 @@ export function SleepPanel({ initial }: { initial: SleepData }) {
 /* 🖥️ Office Command → useProfessionalData                                 */
 /* ====================================================================== */
 
-const STATUS_TONE: Record<string, "good" | "accent" | "warn" | "bad" | "neutral"> = {
-  Offer: "good",
-  Interview: "accent",
-  "Final round": "accent",
-  "To do assessment": "accent",
-  "Assessment complete": "accent",
-  Applied: "accent",
-  "To apply": "warn",
-  Rejected: "bad",
-};
-
 export function ProfessionalPanel({ initial }: { initial: ProfessionalData }) {
   const { data, loading, refresh, setData } = useProfessionalData(initial);
-  const [tab, setTab] = useState<"todo" | "jobs" | "inbox" | "calendar">("todo");
-  const j = data.jobs;
+  const [tab, setTab] = useState<"todo" | "inbox" | "calendar">("todo");
   const openTodos = data.todos.items.filter((t) => !t.done).length;
   return (
     <div className="space-y-3">
-      <SourceBar source={data.source} hint={j.ok ? "inbox job not connected" : "job sheet not connected"} loading={loading} onRefresh={refresh} />
-      <div className="grid grid-cols-3 gap-2">
-        <Metric label="Applied this week" value={j.appliedThisWeek} unit={`/ ${j.weeklyTarget}`} accent="#47dcff" />
-        <Metric label="In progress" value={j.active} />
-        <Metric label="To apply" value={j.toApply} sub={j.responseRate != null ? `${Math.round(j.responseRate * 100)}% response rate` : undefined} />
-      </div>
+      <SourceBar source={data.source} hint="inbox job not connected" loading={loading} onRefresh={refresh} />
       <Tabs
         value={tab}
         onChange={setTab}
         items={[
           { id: "todo", label: `To-do${openTodos ? ` · ${openTodos}` : ""}`, icon: ListTodo },
-          { id: "jobs", label: "Jobs", icon: Table2 },
           { id: "inbox", label: "Inbox", icon: Inbox },
           { id: "calendar", label: "Calendar", icon: CalendarDays },
         ]}
       />
       {tab === "todo" && <TodoList items={data.todos.items} onChange={setData} />}
-      {tab === "jobs" && (j.ok ? <JobGrid rows={j.rows} /> : <GlassCard>{j.message}</GlassCard>)}
       {tab === "inbox" && (
         <div className="space-y-2">
           {data.emails.source !== "live" && <p className="text-[11.5px] text-white/40">Placeholder rows. Summaries appear here once the inbox job posts to /api/ingest/emails.</p>}
@@ -218,59 +199,6 @@ export function ProfessionalPanel({ initial }: { initial: ProfessionalData }) {
         </div>
       )}
       {tab === "calendar" && <WeekCalendar weekStart={data.calendar.weekStart} items={data.calendar.items} />}
-    </div>
-  );
-}
-
-function JobGrid({ rows }: { rows: ProfessionalData["jobs"]["rows"] }) {
-  const cols = ["Company", "Role", "Status", "Date applied"];
-  return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.1] bg-[#070b12]/70 font-mono text-[11.5px]">
-      <div className="max-h-[340px] overflow-auto [scrollbar-width:thin]">
-        <table className="w-full min-w-[500px] border-collapse">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-[#121b29] text-white/40">
-              <th className="w-8 border-b border-r border-white/10 py-1 font-normal" />
-              {cols.map((c, i) => (
-                <th key={c} className="border-b border-r border-white/10 px-2 py-1 text-center font-normal last:border-r-0">
-                  {String.fromCharCode(65 + i)}
-                </th>
-              ))}
-            </tr>
-            <tr className="bg-[#0e1622] text-white/85">
-              <td className="border-b border-r border-white/10 bg-[#121b29] py-1 text-center text-white/40">1</td>
-              {cols.map((c) => (
-                <td key={c} className="border-b border-r border-white/10 px-2 py-1 font-semibold last:border-r-0">
-                  {c}
-                </td>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.id || i} className="text-white/80 hover:bg-cyan-300/[0.06]">
-                <td className="border-b border-r border-white/[0.07] bg-[#121b29]/70 py-1 text-center text-white/35">{i + 2}</td>
-                <td className="max-w-[130px] truncate border-b border-r border-white/[0.07] px-2 py-1">
-                  {r.link ? (
-                    <a href={r.link} target="_blank" rel="noopener noreferrer" className="hover:text-cyan-300 hover:underline">
-                      {r.company}
-                    </a>
-                  ) : (
-                    r.company
-                  )}
-                </td>
-                <td className="max-w-[170px] truncate border-b border-r border-white/[0.07] px-2 py-1 text-white/60" title={r.role}>
-                  {r.role}
-                </td>
-                <td className="border-b border-r border-white/[0.07] px-2 py-1">
-                  <Pill tone={STATUS_TONE[r.status] || "neutral"}>{r.status}</Pill>
-                </td>
-                <td className="border-b border-white/[0.07] px-2 py-1 text-white/60 tnum">{short(r.applied)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }

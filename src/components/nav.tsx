@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { Dumbbell, Briefcase, CircleCheckBig, LogOut, Building2, ChefHat } from "lucide-react";
+import { Dumbbell, CircleCheckBig, LogOut, Building2, ChefHat } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { logout } from "@/app/login/actions";
 
 const ITEMS = [
   { href: "/training", label: "Training", icon: Dumbbell },
   { href: "/kitchen", label: "Kitchen", icon: ChefHat },
-  { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/habits", label: "Habits", icon: CircleCheckBig },
 ];
 

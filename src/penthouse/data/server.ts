@@ -4,7 +4,7 @@
  *
  * Where live data comes from:
  *   sleep        → sleep_logs table   ← POST /api/ingest/sleep   (Garmin/garth script, Oura, WHOOP, Apple Health export)
- *   professional → Google Sheet (jobs) + email_summaries ← POST /api/ingest/emails + Google Calendar (iCal feed)
+ *   professional → email_summaries ← POST /api/ingest/emails + Google Calendar (iCal feed)
  *   fitness      → workouts / sets / runs tables (Training tab, later Strava)
  *   nutrition    → meals, pantry_items, grocery_runs ← kitchen panel or POST /api/ingest/{meals,groceries}
  */
@@ -12,7 +12,6 @@ import { db, getKV } from "@/lib/db";
 import { addDays, daysBetween, fShort, lastNDays, mondayOf, todayISO } from "@/lib/dates";
 import { loadTraining, fmtW } from "@/lib/training";
 import { exerciseSummaries, setsPerMuscle } from "@/lib/coach";
-import { loadJobs, jobAnalytics } from "@/lib/jobs";
 import { sampleEmails, sampleKcalWeek, sampleMeals, samplePantry, sampleSleep, sampleSpend } from "./samples";
 import { daysLeft, USE_SOON_DAYS } from "@/lib/kitchen";
 import { receiptEnabled } from "@/lib/receipt";
@@ -81,29 +80,8 @@ export async function getSleepData(today = todayISO()): Promise<SleepData> {
 /* -------------------------------------------------------------------------- */
 
 export async function getProfessionalData(today = todayISO()): Promise<ProfessionalData> {
-  // no database: still show the sheet and placeholders instead of breaking the home page
+  // no database: still show placeholders instead of breaking the home page
   const sql = await db().catch(() => null);
-
-  // Jobs: the Job Search 2027 sheet
-  const res = await loadJobs().catch(() => null);
-  let jobs: ProfessionalData["jobs"] = { ok: false, message: "Couldn't load the job sheet.", rows: [], appliedThisWeek: 0, weeklyTarget: 10, active: 0, toApply: 0, responseRate: null };
-  if (res?.ok) {
-    const a = jobAnalytics(res.jobs, res.contacts, res.settings, today);
-    const order = ["Interview", "Final round", "To do assessment", "Assessment complete", "Applied", "To apply", "Offer", "Ghosted", "Rejected", "Withdrawn", "Closed"];
-    jobs = {
-      ok: true,
-      rows: [...res.jobs]
-        .sort((x, y) => order.indexOf(x.status) - order.indexOf(y.status) || (y.dateApplied || "").localeCompare(x.dateApplied || ""))
-        .map((j) => ({ id: j.id, company: j.company, role: j.role, status: j.status, applied: j.dateApplied, link: j.link })),
-      appliedThisWeek: a.appsThisWeek,
-      weeklyTarget: res.settings.appTarget,
-      active: a.active,
-      toApply: a.toApply.length,
-      responseRate: a.responseRate,
-    };
-  } else if (res && !res.ok && res.reason === "not_configured") {
-    jobs.message = "Connect the Job Search sheet (JOBS_SHEET_URL / JOBS_SHEET_TOKEN).";
-  }
 
   // AI email summaries: written by the inbox job into email_summaries
   const mail = sql
@@ -139,11 +117,10 @@ export async function getProfessionalData(today = todayISO()): Promise<Professio
     : [];
   const todos: ProfessionalData["todos"] = { source: sql ? "live" : "sample", items: td.map((t) => ({ ...t })) };
 
-  const parts = [jobs.ok, emails.source === "live", calendar.source === "live"];
+  const parts = [emails.source === "live", calendar.source === "live"];
   return {
     source: parts.every(Boolean) ? "live" : parts.some(Boolean) ? "partial" : "sample",
     updatedAt: now(),
-    jobs,
     emails,
     calendar,
     todos,

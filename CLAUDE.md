@@ -1,6 +1,6 @@
 # Emile's Hub
 
-Private personal dashboard. Home page is a 3D apartment at night (React Three Fiber) with four rooms that open glass panels with live data. Classic pages (Training, Kitchen, Jobs, Habits) live under `src/app/(app)`.
+Private personal dashboard. Home page is a 3D apartment at night (React Three Fiber) with four rooms that open glass panels with live data. Classic pages (Training, Kitchen, Habits) live under `src/app/(app)`.
 
 Where things stand and what's next: `docs/STATUS.md`. Update it when a topic is finished, then start the next topic in a fresh session (`/clear`).
 
@@ -22,7 +22,7 @@ Where things stand and what's next: `docs/STATUS.md`. Update it when a topic is 
 | `src/lib/` | db, auth, parsers, kitchen math, receipt reading |
 | `scripts/` | Python syncs for Lidl Plus and MyFitnessPal, launchd jobs (own CLAUDE.md) |
 | `mcp/` | Penthouse MCP server (Python, `mcp` SDK 2.x): read-only role for reads, `/api/ingest` for writes. Venv `mcp/.venv` (Python 3.12), tests `mcp/.venv/bin/pytest mcp` against `hub_test`. See `mcp/README.md` |
-| `apps-script/JobsFeed.gs` | Google Sheet feed for the Jobs tab |
+| `apps-script/JobsFeed.gs` | Google Sheet feed (unused by the dashboard since the Jobs tab was removed; leave it alone) |
 | `automation/calendar-agent.md` | Prompt for the hourly email task: Gmail + Outlook → Google Calendar, and to-dos read from every email |
 | `automation/morning-inbox.md` | Prompt for the morning Gmail summaries task |
 | `src/lib/gcal.ts` | Reads Google Calendar (secret iCal URL) for the calendar panel and Habits page |
