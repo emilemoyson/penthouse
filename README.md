@@ -107,3 +107,14 @@ cp .env.example .env.local   # fill in DATABASE_URL and APP_PASSWORD
 npm install
 npm run dev
 ```
+
+## Try it without my data (reviewers)
+
+```bash
+createdb -p 5433 hub_demo                       # any empty Postgres works
+cp .env.example .env.local                      # set DATABASE_URL=postgres://localhost:5433/hub_demo, APP_PASSWORD=demo, INGEST_TOKEN=demo-token
+npm install && npm run dev                      # http://localhost:3000, log in with APP_PASSWORD
+INGEST_TOKEN_FOR_SEED=demo-token python3 scripts/seed_demo.py   # sleep, meals, to-dos, one gym session
+```
+
+Checks that need no keys and no database: `npm test`, `python3 evals/receipts/score.py`, `python3 evals/gym/score.py --selftest`. The full gate is `.claude/skills/verify/verify.sh`. Eval results: [evals/results.md](evals/results.md).
