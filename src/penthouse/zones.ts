@@ -18,7 +18,8 @@ export type ZoneDef = {
   fov?: number;
   /** Accent glow for lights, hover and the overlay. */
   color: string;
-  href: string;
+  /** Full page that slides up over the scene. Omit for a room that only has its glass panel. */
+  href?: string;
 };
 
 export const OVERVIEW = {
@@ -61,7 +62,6 @@ export const ZONES: ZoneDef[] = [
     camera: { position: [-2.3, 3.4, 0.6], target: [-7.4, 0.55, -3.5] },
     fov: 34,
     color: "#f2a53a",
-    href: "/habits",
   },
   {
     id: "desk",
@@ -75,7 +75,6 @@ export const ZONES: ZoneDef[] = [
     camera: { position: [6.2, 2.55, -1.75], target: [4.75, 0.85, -5.3] },
     fov: 40,
     color: "#4b93ec",
-    href: "/habits",
   },
   {
     id: "gym",

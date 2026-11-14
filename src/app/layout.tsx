@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "Emile", template: "%s · Emile" },
-  description: "Personal dashboard: training, job search and habits.",
+  description: "Personal dashboard: training, kitchen and the penthouse.",
   robots: { index: false, follow: false },
 };
 

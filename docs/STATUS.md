@@ -6,6 +6,11 @@ Updated 2026-11-04. Everything runs locally (`npm run dev`, Postgres on 5433). J
 
 The IENYC "Be a Master in Claude" plan is in `docs/ROADMAP.md` (5 items, one session each, deadline Sun Nov 15, moved from Thu Nov 12).
 
+### Office fixes (branch `office-fixes`, 2026-11-13)
+
+- Removed the Jobs tab and job goals, and the whole Habits page (`src/app/(app)/habits`, `src/lib/habits.ts`). Database tables are untouched. Bedroom and Office now have glass panels only: a zone's `href` in `src/penthouse/zones.ts` is optional, and a room without one has no "Full view" button and no scroll-to-rise. Kitchen, Gym keep theirs.
+- `automation/calendar-agent.md` synced with the live hourly task. To-dos arriving on the live site: not confirmed yet.
+
 ### Item 3: Subagents, done, awaiting commit (branch `subagents` off `skills`, 2026-11-13)
 
 - Agents in `.claude/agents/`: `verifier` (sonnet, read-only, runs verify and returns PASS or FAIL), `code-reviewer` (opus, read-only, ranked findings before a commit), `nutrition-analyst` (haiku, two MCP read tools, fixed block of weekly numbers).
@@ -63,7 +68,7 @@ Plan: `~/.claude/plans/can-you-please-help-rustling-scott.md`. All work is commi
 
 ## Calendar and email task (2026-10-20)
 
-- The penthouse calendar and the Habits "Up next" list read Google Calendar only, through `GOOGLE_CALENDAR_ICS_URL` (`src/lib/gcal.ts`, 5 min cache). The `events` table, its Habits form and `/api/ingest/events` are retired; the table is kept but unread. Its upcoming events are on Google Calendar.
+- The penthouse calendar reads Google Calendar only, through `GOOGLE_CALENDAR_ICS_URL` (`src/lib/gcal.ts`, 5 min cache). The `events` table and `/api/ingest/events` are retired; the table is kept but unread. Its upcoming events are on Google Calendar.
 - The desktop task `trig_01JATiHxRstnTWu9D8mWAsz1` (was "IENYC Daily Sync") gets `automation/calendar-agent.md`: Gmail + Outlook → Google Calendar (with a `#kind` tag) and to-dos → `/api/ingest/todos`. Blackboard and Notion only in the 11:00 run. It no longer writes the Ledger artifact.
 - To-dos need the site reachable from the task. Until the deploy they fall back to the run summary. After the deploy: set `SITE_URL` in the task to the Vercel URL and add `GOOGLE_CALENDAR_ICS_URL` on Vercel.
 

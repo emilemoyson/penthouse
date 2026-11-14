@@ -58,7 +58,6 @@ export async function saveWorkout(_prev: { error?: string } | undefined, form: F
     }
   });
   revalidatePath("/training");
-  revalidatePath("/habits");
   revalidatePath("/");
   redirect("/training");
 }
@@ -114,7 +113,6 @@ export async function saveRun(_prev: { error?: string } | undefined, form: FormD
               values (${r.date}, ${r.distance_km}, ${r.duration_sec}, ${r.kind}, ${r.avg_hr}, ${r.notes})`;
   }
   revalidatePath("/training");
-  revalidatePath("/habits");
   redirect("/training");
 }
 

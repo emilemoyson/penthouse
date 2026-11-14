@@ -6,7 +6,7 @@ import { ChevronDown } from "lucide-react";
 import { nudgeRise, onRiseFrame, setRise } from "../rise";
 
 /**
- * Full view of the focused room: its page (/training, /habits, /kitchen) slides up over the night sky,
+ * Full view of the focused room: its page (/training, /kitchen) slides up over the night sky,
  * in step with the camera rise (src/penthouse/rise.ts). The page runs in a same-origin iframe, so its
  * forms, server actions and links work as usual; in a frame it drops its nav and background
  * (html.embedded in globals.css). Scrolling up at the top of the page, Esc, the handle or a click on

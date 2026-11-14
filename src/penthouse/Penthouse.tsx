@@ -24,7 +24,11 @@ export function Penthouse({ data }: { data: PenthouseData }) {
   useEffect(() => {
     const el = root.current;
     if (!el) return;
-    const focused = () => useZone.getState().phase === "focused";
+    // only a room with a full page rises into the sky
+    const focused = () => {
+      const z = useZone.getState();
+      return z.phase === "focused" && z.zone != null && !!zoneById(z.zone)?.href;
+    };
     const onWheel = (e: WheelEvent) => {
       if (!focused() || innerCanScroll(e.target, e.deltaY, el)) return;
       nudgeRise(e.deltaMode === 1 ? e.deltaY * 32 : e.deltaY);
@@ -212,12 +216,14 @@ function Overlay({ data }: { data: PenthouseData }) {
                   <p className="text-[13px] text-white/50">{def.subtitle}</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={openFullView}
-                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
-                  >
-                    Full view <ChevronsDown size={13} />
-                  </button>
+                  {def.href && (
+                    <button
+                      onClick={openFullView}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
+                    >
+                      Full view <ChevronsDown size={13} />
+                    </button>
+                  )}
                   <button
                     onClick={close}
                     className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.14] hover:text-white"
@@ -232,19 +238,21 @@ function Overlay({ data }: { data: PenthouseData }) {
                 {shown === "desk" && <ProfessionalPanel initial={data.professional} />}
                 {shown === "gym" && <FitnessPanel initial={data.fitness} />}
                 {shown === "kitchen" && <NutritionPanel initial={data.nutrition} />}
-                <button onClick={openFullView} className="mt-5 flex w-full flex-col items-center gap-1 pb-1 text-[11.5px] text-white/35 transition hover:text-white/70">
-                  Scroll for the full view
-                  <ChevronsDown size={15} className="animate-bounce" />
-                </button>
+                {def.href && (
+                  <button onClick={openFullView} className="mt-5 flex w-full flex-col items-center gap-1 pb-1 text-[11.5px] text-white/35 transition hover:text-white/70">
+                    Scroll for the full view
+                    <ChevronsDown size={15} className="animate-bounce" />
+                  </button>
+                )}
               </div>
               <footer className="relative hidden border-t border-white/[0.06] px-6 py-2.5 text-[11.5px] text-white/35 lg:block">
-                Scroll for the full view · <kbd className="font-mono">Esc</kbd> to zoom out · <kbd className="font-mono">1–4</kbd> to jump between rooms
+                {def.href ? "Scroll for the full view · " : ""}<kbd className="font-mono">Esc</kbd> to zoom out · <kbd className="font-mono">1–4</kbd> to jump between rooms
               </footer>
             </>
           )}
         </aside>
       </div>
-      {def && visible && <Sheet href={def.href} />}
+      {def?.href && visible && <Sheet href={def.href} />}
     </>
   );
 }

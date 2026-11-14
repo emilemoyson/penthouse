@@ -1,6 +1,6 @@
 # Emile's Hub
 
-Private personal dashboard. Home page is a 3D apartment at night (React Three Fiber) with four rooms that open glass panels with live data. Classic pages (Training, Kitchen, Habits) live under `src/app/(app)`.
+Private personal dashboard. Home page is a 3D apartment at night (React Three Fiber) with four rooms that open glass panels with live data. Classic pages (Training, Kitchen) live under `src/app/(app)`.
 
 Where things stand and what's next: `docs/STATUS.md`. Update it when a topic is finished, then start the next topic in a fresh session (`/clear`).
 
@@ -25,7 +25,7 @@ Where things stand and what's next: `docs/STATUS.md`. Update it when a topic is 
 | `apps-script/JobsFeed.gs` | Google Sheet feed (unused by the dashboard since the Jobs tab was removed; leave it alone) |
 | `automation/calendar-agent.md` | Prompt for the hourly email task: Gmail + Outlook → Google Calendar, and to-dos read from every email |
 | `automation/morning-inbox.md` | Prompt for the morning Gmail summaries task |
-| `src/lib/gcal.ts` | Reads Google Calendar (secret iCal URL) for the calendar panel and Habits page |
+| `src/lib/gcal.ts` | Reads Google Calendar (secret iCal URL) for the calendar panel |
 
 ## Run and check
 

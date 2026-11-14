@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { Dumbbell, CircleCheckBig, LogOut, Building2, ChefHat } from "lucide-react";
+import { Dumbbell, LogOut, Building2, ChefHat } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { logout } from "@/app/login/actions";
 
 const ITEMS = [
   { href: "/training", label: "Training", icon: Dumbbell },
   { href: "/kitchen", label: "Kitchen", icon: ChefHat },
-  { href: "/habits", label: "Habits", icon: CircleCheckBig },
 ];
 
 function Brand() {
