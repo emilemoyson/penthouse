@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import type { TransactionSql } from "postgres";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db, runAsUser } from "@/lib/db";
+import { userForToken } from "@/lib/ingest-tokens";
+import { ingestHealth } from "@/lib/health-export";
+import { importWorkoutText } from "@/lib/workout-import";
 import { parseISO, todayISO } from "@/lib/dates";
 import { matchExercise, parseWorkoutNote, type ParsedExercise } from "@/lib/parse-workout";
 import { SESSION_KINDS } from "@/lib/exercises";
@@ -11,7 +14,7 @@ import { readReceipt } from "@/lib/receipt";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/ingest/:kind   (Authorization: Bearer $INGEST_TOKEN)
+ * POST /api/ingest/:kind   (Authorization: Bearer <personal key from /connectors>)
  *
  * The door for real data. Anything that can make an HTTP request can feed the penthouse:
  * a nightly garth/Garmin script, an Apple Shortcut, a GitHub Action, a Claude scheduled task.
@@ -118,20 +121,18 @@ const Todo = z.object({
 const gmailUrl = (r: { url?: string; threadId?: string }) =>
   r.url ?? (r.threadId ? `https://mail.google.com/mail/u/0/#all/${encodeURIComponent(r.threadId)}` : null);
 
-function authorised(req: Request) {
-  const token = process.env.INGEST_TOKEN;
-  if (!token) return false;
-  const got = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  if (got.length !== token.length) return false;
-  let diff = 0;
-  for (let i = 0; i < token.length; i++) diff |= token.charCodeAt(i) ^ got.charCodeAt(i);
-  return diff === 0;
+export async function POST(req: Request, { params }: { params: Promise<{ kind: string }> }) {
+  const got = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+  const userId = await userForToken(got).catch(() => null);
+  if (!userId) {
+    await new Promise((r) => setTimeout(r, 300));
+    return NextResponse.json({ error: "unauthorized: use the personal key from the Connectors page" }, { status: 401 });
+  }
+  const { kind } = await params;
+  return runAsUser(userId, () => handle(req, kind));
 }
 
-export async function POST(req: Request, { params }: { params: Promise<{ kind: string }> }) {
-  if (!process.env.INGEST_TOKEN) return NextResponse.json({ error: "INGEST_TOKEN is not set on the server" }, { status: 503 });
-  if (!authorised(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const { kind } = await params;
+async function handle(req: Request, kind: string) {
   let body: unknown;
   try {
     body = await req.json();
@@ -141,6 +142,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
   if (kind === "workout-text") return ingestWorkoutText(body);
   if (kind === "gym-note") return ingestGymNote(body);
   if (kind === "groceries") return ingestGroceries(body);
+  if (kind === "health") return NextResponse.json(await ingestHealth(body));
+  if (kind === "notes") {
+    const text = typeof body === "string" ? body : String((body as { text?: unknown })?.text ?? "");
+    const res = await importWorkoutText(text, "note", { hint: "an iPhone Notes workout log" });
+    return NextResponse.json({ ok: res.sessions > 0, ...res });
+  }
   const items = Array.isArray(body) ? body : [body];
   if (items.length > 500) return NextResponse.json({ error: "max 500 records per request" }, { status: 413 });
   const sql = await db();
@@ -153,7 +160,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
           await sql`insert into sleep_logs (date, total_min, deep_min, rem_min, light_min, awake_min, recovery, hrv, rhr, bedtime, waketime, source, updated_at)
             values (${r.date}, ${r.totalMin}, ${r.deepMin ?? null}, ${r.remMin ?? null}, ${r.lightMin ?? null}, ${r.awakeMin ?? null}, ${r.recovery ?? null},
                     ${r.hrv ?? null}, ${r.rhr ?? null}, ${r.bedtime ?? null}, ${r.waketime ?? null}, ${r.source}, now())
-            on conflict (date) do update set total_min = excluded.total_min, deep_min = excluded.deep_min, rem_min = excluded.rem_min,
+            on conflict (user_id, date) do update set total_min = excluded.total_min, deep_min = excluded.deep_min, rem_min = excluded.rem_min,
               light_min = excluded.light_min, awake_min = excluded.awake_min, recovery = excluded.recovery, hrv = excluded.hrv,
               rhr = excluded.rhr, bedtime = excluded.bedtime, waketime = excluded.waketime, source = excluded.source, updated_at = now()`;
         }
@@ -176,7 +183,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
         for (const r of rows) {
           await sql`insert into email_summaries (id, received_at, sender, subject, summary, bullets, tag, url)
             values (${r.id}, ${r.receivedAt}, ${r.sender}, ${r.subject}, ${r.summary}, ${sql.json(r.bullets)}, ${r.tag}, ${gmailUrl(r)})
-            on conflict (id) do update set summary = excluded.summary, bullets = excluded.bullets, tag = excluded.tag,
+            on conflict (user_id, id) do update set summary = excluded.summary, bullets = excluded.bullets, tag = excluded.tag,
               url = coalesce(excluded.url, email_summaries.url)`;
         }
         return NextResponse.json({ ok: true, kind, count: rows.length });
@@ -186,7 +193,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
         for (const r of rows) {
           await sql`insert into todos (id, title, detail, due, sender, email_id, url)
             values (${r.id}, ${r.title}, ${r.detail}, ${r.due ?? null}, ${r.sender}, ${r.emailId ?? null}, ${gmailUrl(r)})
-            on conflict (id) do update set title = excluded.title, detail = excluded.detail, due = excluded.due, sender = excluded.sender,
+            on conflict (user_id, id) do update set title = excluded.title, detail = excluded.detail, due = excluded.due, sender = excluded.sender,
               url = coalesce(excluded.url, todos.url)`;
         }
         return NextResponse.json({ ok: true, kind, count: rows.length });
@@ -205,7 +212,7 @@ type Tx = TransactionSql;
 /** One workout's sets, adding exercises the library doesn't know yet. */
 async function insertSets(tx: Tx, workoutId: number, exercises: ParsedExercise[]) {
   for (const [order, ex] of exercises.entries()) {
-    if (!ex.known) await tx`insert into exercises (name, muscle, kind) values (${ex.name}, 'Other', 'compound') on conflict (name) do nothing`;
+    if (!ex.known) await tx`insert into exercises (name, muscle, kind) values (${ex.name}, 'Other', 'compound') on conflict (user_id, name) do nothing`;
     for (const [i, st] of ex.sets.entries()) {
       await tx`insert into sets (workout_id, exercise, ex_order, set_no, weight, unit, reps, reps_alt)
                values (${workoutId}, ${ex.name}, ${order}, ${i + 1}, ${st.weight}, ${st.unit}, ${st.reps}, ${st.alt})`;

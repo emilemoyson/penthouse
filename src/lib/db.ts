@@ -1,256 +1,104 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import postgres from "postgres";
-import { seedDatabase } from "./seed";
 
 type Sql = ReturnType<typeof postgres>;
 
-const globalForDb = globalThis as unknown as { __sql?: Sql; __schemaReady?: Promise<void>; __schemaKey?: number };
+/**
+ * The Office is multi-user. Every table has a user_id and row-level security (supabase/migrations).
+ * `db()` returns a client whose every query runs in a short transaction as the signed-in user
+ * (role `office_app`, auth.uid() = their id; the public Data API roles have no access), so Postgres itself filters reads and fills in
+ * user_id on inserts. `rootSql()` bypasses that and is only for server-side lookups that happen
+ * before we know the user (ingest tokens, connector secrets, the hourly sync).
+ */
+
+const globalForDb = globalThis as unknown as { __sql?: Sql };
 
 function connectionString() {
-  const url =
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
-    process.env.DATABASE_URL_UNPOOLED ||
-    process.env.POSTGRES_URL_NON_POOLING;
-  if (!url) throw new Error("DATABASE_URL is not set. Add a Postgres database (Neon) in Vercel → Storage.");
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!url) throw new Error("DATABASE_URL is not set (the Supabase transaction pooler string).");
   return url;
 }
 
-export function getSql(): Sql {
+export function rootSql(): Sql {
   if (!globalForDb.__sql) {
     const url = connectionString();
     const local = /localhost|127\.0\.0\.1/.test(url);
     globalForDb.__sql = postgres(url, {
       ssl: local ? false : "require",
-      max: 3,
+      max: 5,
       idle_timeout: 20,
-      prepare: false,
+      prepare: false, // required by the transaction pooler
       onnotice: () => {},
     });
   }
   return globalForDb.__sql;
 }
 
-const SCHEMA = `
-create table if not exists workouts (
-  id serial primary key,
-  date text not null,
-  kind text not null default 'other',
-  notes text not null default '',
-  date_estimated boolean not null default false,
-  created_at timestamptz not null default now()
-);
-create index if not exists workouts_date_idx on workouts(date);
+export class Unauthorized extends Error {
+  constructor() {
+    super("Not signed in");
+  }
+}
 
-create table if not exists sets (
-  id serial primary key,
-  workout_id integer not null references workouts(id) on delete cascade,
-  exercise text not null,
-  ex_order integer not null default 0,
-  set_no integer not null default 1,
-  weight double precision not null default 0,
-  unit text not null default 'lb',
-  reps integer not null default 0,
-  reps_alt integer
-);
-create index if not exists sets_workout_idx on sets(workout_id);
-create index if not exists sets_exercise_idx on sets(exercise);
+const als = new AsyncLocalStorage<string>();
 
-create table if not exists exercises (
-  name text primary key,
-  muscle text not null default 'Other',
-  kind text not null default 'compound'
-);
+/** Run `fn` as a given user, for code paths with no browser session (ingest tokens, sync jobs). */
+export function runAsUser<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+  return als.run(userId, fn);
+}
 
-create table if not exists runs (
-  id serial primary key,
-  date text not null,
-  distance_km double precision not null,
-  duration_sec integer not null,
-  kind text not null default 'easy',
-  avg_hr integer,
-  notes text not null default '',
-  source text not null default 'manual',
-  created_at timestamptz not null default now()
-);
-create index if not exists runs_date_idx on runs(date);
+export async function currentUserId(): Promise<string> {
+  const fromJob = als.getStore();
+  if (fromJob) return fromJob;
+  const { getUserId } = await import("./session");
+  const id = await getUserId();
+  if (!id) throw new Unauthorized();
+  return id;
+}
 
-create table if not exists habit_logs (
-  date text primary key,
-  read_min integer,
-  zetamac integer,
-  gym boolean not null default false,
-  run boolean not null default false,
-  note text not null default ''
-);
+function scoped(root: Sql, userId: string): Sql {
+  const claims = JSON.stringify({ sub: userId, role: "authenticated" });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const asUser = (tx: any) =>
+    tx`select set_config('request.jwt.claims', ${claims}, true), set_config('role', 'office_app', true)`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const begin = (...args: any[]) => {
+    const cb = args[args.length - 1];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wrapped = async (tx: any) => {
+      await asUser(tx);
+      return cb(tx);
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return args.length > 1 ? (root.begin as any)(args[0], wrapped) : root.begin(wrapped);
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const call = (first: any, ...rest: any[]) => {
+    // a tagged template is a query: run it as the user; anything else is a helper like sql(ids)
+    if (Array.isArray(first) && "raw" in first) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return root.begin(async (tx: any) => {
+        await asUser(tx);
+        return tx(first, ...rest);
+      });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (root as any)(first, ...rest);
+  };
+  return new Proxy(call, {
+    get(_t, prop) {
+      if (prop === "begin") return begin;
+      if (prop === "unsafe") throw new Error("sql.unsafe is not allowed on the user client");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const v = (root as any)[prop];
+      return typeof v === "function" ? v.bind(root) : v;
+    },
+  }) as unknown as Sql;
+}
 
-create table if not exists events (
-  id serial primary key,
-  date text not null,
-  title text not null,
-  note text not null default '',
-  kind text not null default 'personal'
-);
-
-create table if not exists books (
-  id serial primary key,
-  title text not null,
-  author text not null default '',
-  status text not null default 'reading',
-  created_at timestamptz not null default now()
-);
-
-alter table workouts add column if not exists duration_min integer;
-
--- ---------- live pipelines (filled by /api/ingest/* or the UI) ----------
-create table if not exists sleep_logs (
-  date text primary key,          -- the morning you woke up
-  total_min integer not null,
-  deep_min integer,
-  rem_min integer,
-  light_min integer,
-  awake_min integer,
-  recovery integer,               -- 0-100 (Garmin Body Battery / WHOOP recovery / Oura readiness)
-  hrv integer,
-  rhr integer,
-  bedtime text,
-  waketime text,
-  source text not null default 'manual',
-  updated_at timestamptz not null default now()
-);
-
-create table if not exists meals (
-  id serial primary key,
-  date text not null,
-  time text not null default '',
-  name text not null,
-  kcal integer not null default 0,
-  protein double precision not null default 0,
-  carbs double precision not null default 0,
-  fat double precision not null default 0,
-  source text not null default 'manual',
-  created_at timestamptz not null default now()
-);
-create index if not exists meals_date_idx on meals(date);
-
-create table if not exists email_summaries (
-  id text primary key,            -- provider message id, so re-ingesting is idempotent
-  received_at timestamptz not null,
-  sender text not null,
-  subject text not null default '',
-  summary text not null default '',
-  bullets jsonb not null default '[]',
-  tag text not null default 'Other',
-  created_at timestamptz not null default now()
-);
-
-create table if not exists todos (
-  id text primary key,            -- stable id from the inbox job (e.g. gmail message id + suffix)
-  title text not null,
-  detail text not null default '',
-  due text,                       -- YYYY-MM-DD
-  sender text not null default '',
-  email_id text,
-  done boolean not null default false,
-  done_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
-alter table workouts add column if not exists source text not null default 'manual';
-alter table events add column if not exists time text;
-alter table events add column if not exists location text not null default '';
-alter table events add column if not exists email_id text;
-alter table email_summaries add column if not exists url text;
-alter table todos add column if not exists url text;
-
--- gym note (Apple Notes, scripts/gym_sync.py): no dates in the note, so a session is (kind, note_seq) = the nth time that split was logged
-alter table workouts add column if not exists note_seq integer;
-create unique index if not exists workouts_note_seq_idx on workouts(kind, note_seq) where source = 'note';
-
--- ---------- kitchen: grocery runs, pantry, meal cost ----------
-create table if not exists grocery_runs (
-  id serial primary key,
-  date text not null,
-  store text not null default '',
-  total double precision not null default 0,     -- what was paid, incl. tax
-  source text not null default 'manual',         -- manual | receipt | text | api
-  created_at timestamptz not null default now()
-);
-create index if not exists grocery_runs_date_idx on grocery_runs(date);
-
-create table if not exists pantry_items (
-  id serial primary key,
-  run_id integer references grocery_runs(id) on delete set null,
-  name text not null,
-  place text not null default 'fridge',          -- fridge | freezer | pantry
-  qty double precision not null default 1,       -- amount left, in unit
-  qty_start double precision not null default 1,
-  unit text not null default 'item',             -- g | ml | item | serving
-  price double precision not null default 0,     -- paid for qty_start
-  kcal_per double precision not null default 0,  -- per 100 g/ml, or per item/serving
-  protein_per double precision not null default 0,
-  carbs_per double precision not null default 0,
-  fat_per double precision not null default 0,
-  bought text not null,                          -- YYYY-MM-DD
-  use_by text,                                   -- YYYY-MM-DD, optional
-  finished_at timestamptz,
-  created_at timestamptz not null default now()
-);
-create index if not exists pantry_open_idx on pantry_items(finished_at);
-
-alter table grocery_runs add column if not exists ext_id text;               -- e.g. Lidl Plus receipt id, so re-syncing is safe
-create unique index if not exists grocery_runs_ext_idx on grocery_runs(ext_id);
-alter table pantry_items add column if not exists barcode text;
-alter table pantry_items add column if not exists size_guessed boolean not null default false; -- no size on the receipt; Claude guessed the package
-
--- one row per cooking session (or eating straight from the fridge), so a meal can be undone
-create table if not exists cooks (
-  id serial primary key,
-  date text not null,
-  name text not null,
-  leftover_item_id integer references pantry_items(id) on delete set null,
-  created_at timestamptz not null default now()
-);
-create table if not exists cook_uses (
-  cook_id integer not null references cooks(id) on delete cascade,
-  item_id integer not null references pantry_items(id) on delete cascade,
-  amount double precision not null
-);
-create index if not exists cook_uses_cook_idx on cook_uses(cook_id);
-alter table meals add column if not exists cook_id integer references cooks(id) on delete set null;
-
-alter table meals add column if not exists cost double precision;          -- null = unknown
-alter table meals add column if not exists kind text not null default 'home'; -- home | out
-
-create table if not exists kv (
-  key text primary key,
-  value jsonb not null,
-  updated_at timestamptz not null default now()
-);
-`;
-
-/** Creates tables on first use and imports starter data once. Safe to call on every request. */
+/** A database client scoped to the signed-in user. Throws Unauthorized when nobody is signed in. */
 export async function db(): Promise<Sql> {
-  const sql = getSql();
-  // re-run the (idempotent) schema when it changes, e.g. after a hot reload in dev
-  if (globalForDb.__schemaKey !== SCHEMA.length) {
-    globalForDb.__schemaKey = SCHEMA.length;
-    globalForDb.__schemaReady = undefined;
-  }
-  if (!globalForDb.__schemaReady) {
-    globalForDb.__schemaReady = (async () => {
-      await sql.unsafe(SCHEMA);
-      const seeded = await sql`select 1 from kv where key = 'seeded'`;
-      if (seeded.length === 0) {
-        await seedDatabase(sql);
-        await sql`insert into kv (key, value) values ('seeded', ${sql.json({ at: new Date().toISOString() })}) on conflict do nothing`;
-      }
-    })().catch((e) => {
-      globalForDb.__schemaReady = undefined;
-      throw e;
-    });
-  }
-  await globalForDb.__schemaReady;
-  return sql;
+  return scoped(rootSql(), await currentUserId());
 }
 
 export async function getKV<T>(key: string, fallback: T): Promise<T> {
@@ -264,5 +112,5 @@ export async function setKV(key: string, value: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const v = sql.json(value as any);
   await sql`insert into kv (key, value, updated_at) values (${key}, ${v}, now())
-            on conflict (key) do update set value = excluded.value, updated_at = now()`;
+            on conflict (user_id, key) do update set value = excluded.value, updated_at = now()`;
 }

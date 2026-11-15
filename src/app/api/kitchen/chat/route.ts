@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { takeChat } from "@/lib/usage";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { todayISO } from "@/lib/dates";
@@ -7,7 +8,7 @@ import { receiptEnabled } from "@/lib/receipt";
 import type { CookInput } from "@/penthouse/data/actions";
 
 /**
- * Kitchen chat. Emile says what they cooked or ate in plain words; Claude matches it to the fridge and
+ * Kitchen chat. the user says what they cooked or ate in plain words; Claude matches it to the fridge and
  * proposes it as a card (ingredients taken, macros eaten, meal prep kept). Nothing is saved here:
  * the card's Save button calls the same server actions as the forms (cookMeal, eatItem, updatePantryItem).
  *
@@ -48,24 +49,24 @@ export type ChatCard =
   | { kind: "eat"; id: string; itemId: number; amount: number; name: string; amountLabel: string; eaten: Macros & { cost: number } }
   | { kind: "size"; id: string; itemId: number; name: string; from: string; to: string; size: { qty: number; unit: string }; left: string };
 
-const SYSTEM = `You help Emile log cooking and eating against their fridge, in a personal food tracker.
-Each message from Emile ends with the fridge as it is right now: one line per item with its id, amount left, unit and macros.
+const SYSTEM = `You help the user log cooking and eating against their fridge, in a personal food tracker.
+Each message from the user ends with the fridge as it is right now: one line per item with its id, amount left, unit and macros.
 
 What you do:
-- When Emile says what they cooked, match each ingredient to a fridge item and call propose_cook.
+- When the user says what they cooked, match each ingredient to a fridge item and call propose_cook.
   Convert amounts to the item's unit (2 eggs = 2 item; 1 lb = 454 g; a cup of cooked rice is about 160 g, so use the dry amount if the item is dry rice).
   The split: "made 4 portions, ate 1" is portions; "ate half" with no count is portions made 2, ate 1; "it's all meal prep" is ate 0.
-  If Emile weighed the cooked dish, use by weight (cooked grams, eaten grams).
+  If the user weighed the cooked dish, use by weight (cooked grams, eaten grams).
 - Ingredients that aren't in the fridge (oil, butter, spices, something never logged): put them in extras with your estimate of their macros
   for the amount used, and say so in one short line. Skip things with no real calories (salt, pepper, water).
-- When Emile ate something straight from the fridge (a yogurt, leftovers), call propose_eat.
-- When Emile says a package was a different size than the fridge shows ("the beef was 2 lb"), call propose_size_fix.
+- When the user ate something straight from the fridge (a yogurt, leftovers), call propose_eat.
+- When the user says a package was a different size than the fridge shows ("the beef was 2 lb"), call propose_size_fix.
   Items marked "size guessed" had no size on the receipt; if one comes up, you can mention it once.
 - If something is unclear, ask one short question instead of guessing: which item when two could match, how much when no amount was given,
-  how much was eaten when it matters. A "some" or "a bit" needs an amount, unless Emile says to estimate.
-- Never claim anything is saved. Proposals show up as cards with a Save button; Emile saves them. Messages starting with [Saved] tell you what was saved.
+  how much was eaten when it matters. A "some" or "a bit" needs an amount, unless the user says to estimate.
+- Never claim anything is saved. Proposals show up as cards with a Save button; the user saves them. Messages starting with [Saved] tell you what was saved.
 
-Style: short, plain sentences. No em dashes. Call items by their names; the ids are only for tools, never mention them. Use they/them for Emile. Don't repeat the numbers on the card; one line saying what you proposed is enough.`;
+Style: short, plain sentences. No em dashes. Call items by their names; the ids are only for tools, never mention them. Use they/them for the user. Don't repeat the numbers on the card; one line saying what you proposed is enough.`;
 
 const Split = z.discriminatedUnion("by", [
   z.object({ by: z.literal("portions"), made: z.number().min(0.5).max(50), ate: z.number().min(0).max(50) }),
@@ -86,7 +87,7 @@ const num = { type: "number" } as const;
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "propose_cook",
-    description: "Show Emile a cook to save: ingredients taken from the fridge, what was eaten now, and what is kept as meal prep. Does not save.",
+    description: "Show the user a cook to save: ingredients taken from the fridge, what was eaten now, and what is kept as meal prep. Does not save.",
     input_schema: {
       type: "object",
       properties: {
@@ -125,7 +126,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   },
   {
     name: "propose_eat",
-    description: "Show Emile a card to log eating some of one fridge item as is (leftovers, yogurt). Does not save.",
+    description: "Show the user a card to log eating some of one fridge item as is (leftovers, yogurt). Does not save.",
     input_schema: {
       type: "object",
       properties: { itemId: { type: "integer" }, amount: { ...num, description: "In the item's unit." } },
@@ -135,7 +136,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   },
   {
     name: "propose_size_fix",
-    description: "Show Emile a card to correct a package size (the whole package as bought, not what's left). What's left keeps its share. Does not save.",
+    description: "Show the user a card to correct a package size (the whole package as bought, not what's left). What's left keeps its share. Does not save.",
     input_schema: {
       type: "object",
       properties: { itemId: { type: "integer" }, qty: num, unit: { type: "string", description: "g, kg, lb, oz, ml, l, fl oz or item." } },
@@ -168,6 +169,7 @@ export async function POST(req: Request) {
   if (!receiptEnabled()) return Response.json({ error: "Add ANTHROPIC_API_KEY to use the kitchen chat." }, { status: 400 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid chat" }, { status: 422 });
+  if (!(await takeChat())) return Response.json({ error: "That's the daily chat limit for this demo. Back tomorrow." }, { status: 429 });
 
   const sql = await db();
   const loadFridge = () =>
@@ -237,7 +239,7 @@ export async function POST(req: Request) {
   return new Response(body, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
-/** Works out a proposal and its card. Errors go back to Claude so it can fix the call or ask Emile. */
+/** Works out a proposal and its card. Errors go back to Claude so it can fix the call or ask the user. */
 function runTool(call: Anthropic.Beta.BetaToolUseBlock, items: Map<number, Item>): { text: string; card?: ChatCard; error?: boolean } {
   const fail = (text: string) => ({ text, error: true });
 
@@ -268,9 +270,9 @@ function runTool(call: Anthropic.Beta.BetaToolUseBlock, items: Map<number, Item>
     return {
       card,
       text: [
-        "Shown to Emile as a card with a Save button. Not saved yet.",
+        "Shown to the user as a card with a Save button. Not saved yet.",
         ...lines.map((l) => `${l.name}: uses ${l.amount}, ${l.left} left`),
-        short.length ? `Capped at what's left for: ${short.join(", ")}. Tell Emile.` : "",
+        short.length ? `Capped at what's left for: ${short.join(", ")}. Tell the user.` : "",
         `Eaten now: ${macrosLine(pv.eaten)}`,
         pv.leftovers ? `Meal prep: ${card.leftovers!.amount} to the ${c.keepIn}, ${macrosLine(pv.leftovers.per)} per ${per}` : "No meal prep.",
       ]
@@ -287,7 +289,7 @@ function runTool(call: Anthropic.Beta.BetaToolUseBlock, items: Map<number, Item>
     const amount = Math.min(p.data.amount, it.qty);
     const m = itemMacros(it, amount);
     const card: ChatCard = { kind: "eat", id: call.id, itemId: it.id, amount, name: it.name.replace(/, leftovers$/, ""), amountLabel: fmtQty(amount, it.unit), eaten: { ...m, cost: itemCost(it, amount) } };
-    return { card, text: `Shown to Emile as a card. Not saved yet. ${it.name}: ${card.amountLabel}, ${macrosLine(m)}${amount < p.data.amount ? ` (only ${fmtQty(it.qty, it.unit)} was left)` : ""}.` };
+    return { card, text: `Shown to the user as a card. Not saved yet. ${it.name}: ${card.amountLabel}, ${macrosLine(m)}${amount < p.data.amount ? ` (only ${fmtQty(it.qty, it.unit)} was left)` : ""}.` };
   }
 
   if (call.name === "propose_size_fix") {
@@ -298,7 +300,7 @@ function runTool(call: Anthropic.Beta.BetaToolUseBlock, items: Map<number, Item>
     const n = normalizeQty(p.data.qty, p.data.unit);
     const left = (it.qty / it.qty_start) * n.qty;
     const card: ChatCard = { kind: "size", id: call.id, itemId: it.id, name: it.name, from: fmtQty(it.qty_start, it.unit), to: fmtQty(n.qty, n.unit), size: { qty: p.data.qty, unit: p.data.unit }, left: fmtQty(left, n.unit) };
-    return { card, text: `Shown to Emile as a card. Not saved yet. ${it.name}: package ${card.from} becomes ${card.to}, ${card.left} left after the fix.` };
+    return { card, text: `Shown to the user as a card. Not saved yet. ${it.name}: package ${card.from} becomes ${card.to}, ${card.left} left after the fix.` };
   }
 
   return fail(`Unknown tool ${call.name}.`);

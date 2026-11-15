@@ -1,3 +1,5 @@
+import { getKV } from "./db";
+import { safeFetchText } from "./safe-fetch";
 import ical, { type ParameterValue, type VEvent } from "node-ical";
 import { addDays, parseISO, TZ } from "@/lib/dates";
 import type { CalendarItem } from "@/penthouse/data/types";
@@ -26,16 +28,17 @@ function kindOf(description: string): string {
   return tag && (KINDS as readonly string[]).includes(tag) ? tag : "personal";
 }
 
-function feedUrls(): string[] {
-  const all = [process.env.GOOGLE_CALENDAR_ICS_URL, ...(process.env.EXTRA_CALENDAR_ICS_URLS ?? "").split(",")];
-  return all.map((u) => (u ?? "").trim().replace(/^webcal:\/\//i, "https://")).filter(Boolean);
+/** The signed-in user's own iCal links, saved from the Connectors page (kv "calendar_urls"). */
+async function feedUrls(): Promise<string[]> {
+  const all = await getKV<string[]>("calendar_urls", []).catch(() => [] as string[]);
+  return all.map((u) => (u ?? "").trim().replace(/^webcal:\/\//i, "https://")).filter((u) => /^https:\/\//i.test(u));
 }
 
-export const googleCalendarEnabled = () => feedUrls().length > 0;
+export const googleCalendarEnabled = async () => (await feedUrls()).length > 0;
 
 /** Events from `from` to `to` (YYYY-MM-DD, inclusive), recurring ones expanded. null when not set up or the fetch fails. */
 export async function loadGoogleEvents(from: string, to: string): Promise<CalendarItem[] | null> {
-  const urls = feedUrls();
+  const urls = await feedUrls();
   if (!urls.length) return null;
   const feeds = await Promise.all(urls.map((u) => loadFeed(u, from, to)));
   if (feeds.every((f) => f === null)) return null;
@@ -52,9 +55,9 @@ export async function loadGoogleEvents(from: string, to: string): Promise<Calend
 
 async function loadFeed(url: string, from: string, to: string): Promise<CalendarItem[] | null> {
   try {
-    const res = await fetch(url, { next: { revalidate: 300 }, signal: AbortSignal.timeout(8000) });
+    const res = await safeFetchText(url, { revalidate: 300 });
     if (!res.ok) return null;
-    const data = ical.sync.parseICS(await res.text());
+    const data = ical.sync.parseICS(res.text);
     // pad the window by a day each side, then filter on the New York date
     const start = parseISO(addDays(from, -1));
     const end = parseISO(addDays(to, 2));

@@ -8,7 +8,7 @@ import { MUSCLES } from "@/lib/exercises";
 
 /**
  * What the room agents can change. The agent only proposes: each tool call becomes a card in the chat,
- * and nothing is written until Emile presses Save, which posts the same input to /api/room/:zone/apply.
+ * and nothing is written until the user presses Save, which posts the same input to /api/room/:zone/apply.
  * Both sides validate with the schemas below, so a card can't save something the agent couldn't propose.
  */
 
@@ -16,7 +16,7 @@ const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("YYYY-MM-DD");
 const HM = z.string().regex(/^\d{2}:\d{2}$/).describe("24h HH:MM");
 
 const Exercise = z.object({
-  name: z.string().trim().min(1).max(80).describe("Use the name already in Emile's log when it's the same exercise."),
+  name: z.string().trim().min(1).max(80).describe("Use the name already in the user's log when it's the same exercise."),
   muscle: z.enum(MUSCLES).optional().describe("Only for an exercise not in the log yet."),
   sets: z.array(z.object({ weight: z.number().min(0).max(2000), reps: z.number().int().min(1).max(200) })).min(1).max(20),
 });
@@ -24,7 +24,7 @@ const Workout = z.object({
   date: Day,
   kind: z.enum(["push", "pull", "legs", "upper", "lower", "full", "other"]),
   durationMin: z.number().int().min(1).max(600).optional(),
-  unit: z.enum(["lb", "kg"]).describe("Weight unit for every set. Emile usually uses lb."),
+  unit: z.enum(["lb", "kg"]).describe("Weight unit for every set. the user usually uses lb."),
   notes: z.string().max(2000).optional(),
   exercises: z.array(Exercise).min(1).max(20),
 });
@@ -32,7 +32,7 @@ const Workout = z.object({
 export const ACTIONS = {
   log_meal: {
     zone: "kitchen",
-    describe: "Propose logging a meal or snack, on any day. Estimate macros if Emile didn't give them (restaurant items: use the chain's published numbers when you know them).",
+    describe: "Propose logging a meal or snack, on any day. Estimate macros if the user didn't give them (restaurant items: use the chain's published numbers when you know them).",
     schema: z.object({
       date: Day,
       time: HM.optional(),
@@ -42,7 +42,7 @@ export const ACTIONS = {
       carbs: z.number().min(0).max(2000),
       fat: z.number().min(0).max(1000),
       kind: z.enum(["home", "out"]).describe("out = bought ready to eat (restaurant, takeout)."),
-      cost: z.number().min(0).max(10000).optional().describe("Dollars, only if Emile said what they paid."),
+      cost: z.number().min(0).max(10000).optional().describe("Dollars, only if the user said what they paid."),
     }),
   },
   delete_meal: {
@@ -94,7 +94,7 @@ export const ACTIONS = {
   },
   log_sleep: {
     zone: "bed",
-    describe: "Propose logging or correcting a night of sleep. date is the morning Emile woke up. Replaces what's stored for that night.",
+    describe: "Propose logging or correcting a night of sleep. date is the morning the user woke up. Replaces what's stored for that night.",
     schema: z.object({
       date: Day,
       totalMin: z.number().int().min(0).max(1440).describe("Minutes asleep."),
@@ -116,7 +116,7 @@ export function toolsFor(zone: RoomZone): Anthropic.Beta.BetaTool[] {
     .filter((n) => ACTIONS[n].zone === zone)
     .map((n) => {
       const { $schema: _, ...schema } = z.toJSONSchema(ACTIONS[n].schema, { io: "input" }) as Record<string, unknown>;
-      return { name: n, description: `${ACTIONS[n].describe} Does not save: Emile sees a card and presses Save.`, input_schema: schema as Anthropic.Beta.BetaTool["input_schema"] };
+      return { name: n, description: `${ACTIONS[n].describe} Does not save: the user sees a card and presses Save.`, input_schema: schema as Anthropic.Beta.BetaTool["input_schema"] };
     });
 }
 
@@ -226,14 +226,15 @@ export async function apply(zone: RoomZone, tool: string, input: unknown): Promi
       await sql.begin(async (tx) => {
         let id = tool === "edit_workout" ? w.id : undefined;
         if (id) {
-          await tx`update workouts set date = ${w.date}, kind = ${w.kind}, notes = ${w.notes ?? ""}, duration_min = ${w.durationMin ?? null}, date_estimated = false where id = ${id}`;
+          const hit = await tx`update workouts set date = ${w.date}, kind = ${w.kind}, notes = ${w.notes ?? ""}, duration_min = ${w.durationMin ?? null}, date_estimated = false where id = ${id} returning id`;
+          if (!hit.length) throw new Error("That workout wasn't found.");
           await tx`delete from sets where workout_id = ${id}`;
         } else {
           const [row] = await tx`insert into workouts (date, kind, notes, duration_min) values (${w.date}, ${w.kind}, ${w.notes ?? ""}, ${w.durationMin ?? null}) returning id`;
           id = row.id as number;
         }
         for (const [i, ex] of w.exercises.entries()) {
-          if (ex.muscle) await tx`insert into exercises (name, muscle) values (${ex.name}, ${ex.muscle}) on conflict (name) do nothing`;
+          if (ex.muscle) await tx`insert into exercises (name, muscle) values (${ex.name}, ${ex.muscle}) on conflict (user_id, name) do nothing`;
           for (const [j, s] of ex.sets.entries())
             await tx`insert into sets (workout_id, exercise, ex_order, set_no, weight, unit, reps) values (${id!}, ${ex.name}, ${i}, ${j + 1}, ${s.weight}, ${w.unit}, ${s.reps})`;
         }
@@ -253,7 +254,7 @@ export async function apply(zone: RoomZone, tool: string, input: unknown): Promi
       const s = v as Parsed<"log_sleep">;
       await sql`insert into sleep_logs (date, total_min, bedtime, waketime, recovery, source)
                 values (${s.date}, ${s.totalMin}, ${s.bedtime ?? null}, ${s.waketime ?? null}, ${s.recovery ?? null}, 'manual')
-                on conflict (date) do update set total_min = excluded.total_min, bedtime = excluded.bedtime, waketime = excluded.waketime,
+                on conflict (user_id, date) do update set total_min = excluded.total_min, bedtime = excluded.bedtime, waketime = excluded.waketime,
                   recovery = coalesce(excluded.recovery, sleep_logs.recovery), source = 'manual', updated_at = now()`;
       break;
     }

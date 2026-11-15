@@ -48,7 +48,7 @@ export async function saveWorkout(_prev: { error?: string } | undefined, form: F
     for (const [i, ex] of w.exercises.entries()) {
       if (ex.muscle) {
         await tx`insert into exercises (name, muscle, kind) values (${ex.name}, ${ex.muscle}, ${ex.exKind || "compound"})
-                 on conflict (name) do update set muscle = excluded.muscle, kind = excluded.kind`;
+                 on conflict (user_id, name) do update set muscle = excluded.muscle, kind = excluded.kind`;
       }
       for (const [j, s] of ex.sets.entries()) {
         if (s.reps <= 0) continue;

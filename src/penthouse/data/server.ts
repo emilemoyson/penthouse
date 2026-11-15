@@ -9,6 +9,8 @@
  *   nutrition    → meals, pantry_items, grocery_runs ← kitchen panel or POST /api/ingest/{meals,groceries}
  */
 import { db, getKV } from "@/lib/db";
+import { getUserId } from "@/lib/session";
+import { refreshStale } from "@/lib/connectors/refresh";
 import { addDays, daysBetween, fShort, lastNDays, mondayOf, todayISO } from "@/lib/dates";
 import { loadTraining, fmtW } from "@/lib/training";
 import { exerciseSummaries, setsPerMuscle } from "@/lib/coach";
@@ -285,6 +287,8 @@ export async function getZoneData<K extends keyof typeof LOADERS>(key: K) {
 /** Everything for the first paint (the page passes it down, hooks then keep it fresh). */
 export async function getPenthouseData(): Promise<PenthouseData> {
   const today = todayISO();
+  const uid = await getUserId();
+  if (uid) await refreshStale(uid);
   const [sleep, professional, fitness, nutrition] = await Promise.all([
     getSleepData(today),
     getProfessionalData(today),

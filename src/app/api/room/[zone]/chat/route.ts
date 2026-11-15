@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getPenthouseData } from "@/penthouse/data/server";
 import { receiptEnabled } from "@/lib/receipt";
+import { takeChat } from "@/lib/usage";
+import { firstName, getProfile } from "@/lib/profile";
 import type { PenthouseData } from "@/penthouse/data/types";
 import { check, editContext, toolsFor, type ActionCard } from "@/lib/room-actions";
 
@@ -9,7 +11,7 @@ import { check, editContext, toolsFor, type ActionCard } from "@/lib/room-action
  * Room agents for the studio. Each room is a small agent that answers from that room's data only:
  * bedroom → sleep, office → calendar and to-dos, gym → training, kitchen → food and pantry.
  * Each room can also propose changes (log a meal, edit a session, tick a to-do, log a night). A proposal
- * streams to the browser as a card; nothing is written until Emile presses Save (/api/room/:zone/apply).
+ * streams to the browser as a card; nothing is written until the user presses Save (/api/room/:zone/apply).
  *
  * Same wire format as the kitchen chat: the client sends the API history back each turn (append-only),
  * fresh room data rides in the new user message, and the reply streams as NDJSON
@@ -30,42 +32,42 @@ const ROLE: Record<Zone, { name: string; job: string; key: keyof Omit<PenthouseD
   bed: {
     name: "the bedroom",
     key: "sleep",
-    job: "You look after Emile's sleep and recovery. You know last night, the last two weeks of nights and their sleep goal. Help them read how rested they are and plan tonight (a sensible bedtime, winding down).",
+    job: "You look after the user's sleep and recovery. You know last night, the last two weeks of nights and their sleep goal. Help them read how rested they are and plan tonight (a sensible bedtime, winding down).",
   },
   desk: {
     name: "the office",
     key: "professional",
-    job: "You look after Emile's work and school week. You know their calendar for the coming weeks and their to-do list (read from Gmail, Outlook and Blackboard, plus ones they added). Help them see what matters today, plan around meetings and pick what to do next.",
+    job: "You look after the user's work and school week. You know their calendar for the coming weeks and their to-do list (read from Gmail, Outlook and Blackboard, plus ones they added). Help them see what matters today, plan around meetings and pick what to do next.",
   },
   gym: {
     name: "the gym",
     key: "fitness",
-    job: "You are Emile's training coach. You know this week's sessions and runs, last week, the streak, which muscles got how many sets, and how their top lifts are moving. Help them decide what to train next and spot gaps.",
+    job: "You are the user's training coach. You know this week's sessions and runs, last week, the streak, which muscles got how many sets, and how their top lifts are moving. Help them decide what to train next and spot gaps.",
   },
   kitchen: {
     name: "the kitchen",
     key: "nutrition",
-    job: "You look after Emile's food. You know today's meals and macros against their targets, the last week of calories and protein, what is in the fridge and pantry (and what to use soon), and food spending. Help them decide what to eat next with what they have.",
+    job: "You look after the user's food. You know today's meals and macros against their targets, the last week of calories and protein, what is in the fridge and pantry (and what to use soon), and food spending. Help them decide what to eat next with what they have.",
   },
 };
 
-const system = (z: Zone) => `You are the agent for ${ROLE[z].name} in Emile's Hub, a personal dashboard drawn as a 3D apartment.
+const system = (z: Zone, name: string) => `${name ? `The user is called ${name}. ` : ""}You are the agent for ${ROLE[z].name} in The Office, a personal dashboard drawn as a 3D apartment.
 ${ROLE[z].job}
 
-Each message from Emile ends with this room's data as it is right now, as JSON. Rules:
-- Answer only from that data and what Emile tells you. If something isn't in it, say so plainly. Never invent numbers.
+Each message from the user ends with this room's data as it is right now, as JSON. Rules:
+- Answer only from that data and what the user tells you. If something isn't in it, say so plainly. Never invent numbers.
 - If the data is marked "sample", it is example data because nothing is connected yet. Say that once when it matters.
-- When Emile wants something logged, changed or removed, use your tools. A tool call shows Emile a card with a Save button;
+- When the user wants something logged, changed or removed, use your tools. A tool call shows the user a card with a Save button;
   it is not saved until they press it, so never say it's saved or logged. Call the tool first, with no text before it.
   After it, one or two short lines: what you estimated, if anything, and any useful note. Don't repeat the card's numbers.
-  Messages starting with [Saved] tell you what Emile saved.
+  Messages starting with [Saved] tell you what the user saved.
 - Work out dates yourself from today's date ("last night", "yesterday", "Tuesday"). Fill in sensible estimates (macros for a known dish,
   a typical time for "dinner") rather than asking, and say in a few words what you estimated. Ask one short question only when a guess
   could easily be wrong in a way that matters (which session to change, how much of something).
 - Use ids from the data only in tool calls; never mention them.
 - If a question belongs to another room (sleep, office, gym, kitchen), answer briefly if the data allows, or suggest asking that room.
 
-Style: short, plain sentences, two to five of them unless Emile asks for more. No em dashes. No markdown headings. Use they/them for Emile.`;
+Style: short, plain sentences, two to five of them unless the user asks for more. No em dashes. No markdown headings. Use they/them for the user.`;
 
 export async function POST(req: Request, ctx: { params: Promise<{ zone: string }> }) {
   const zone = Zone.safeParse((await ctx.params).zone);
@@ -74,6 +76,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ zone: string }
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "invalid chat" }, { status: 422 });
 
+  if (!(await takeChat())) return Response.json({ error: "That's the daily chat limit for this demo. Back tomorrow." }, { status: 429 });
+  const name = await getProfile().then(firstName).catch(() => "");
   const data = await getPenthouseData();
   const slice = data[ROLE[zone.data].key];
   const extra = await editContext(zone.data, data.today).catch(() => "");
@@ -105,7 +109,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ zone: string }
             output_config: { effort: "low" },
             thinking: { type: "adaptive", display: "omitted" }, // estimates get worked out here, not in the reply
             cache_control: { type: "ephemeral" },
-            system: system(zone.data),
+            system: system(zone.data, name),
             tools,
             messages: [...history, ...added],
           });
@@ -123,7 +127,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ zone: string }
               const c = await check(zone.data, call.name, call.input);
               const card: ActionCard = { id: call.id, tool: call.name as ActionCard["tool"], input: c.input, title: c.title, lines: c.lines };
               send({ t: "card", card });
-              results.push({ type: "tool_result", tool_use_id: call.id, content: "Shown to Emile as a card. Not saved until they press Save." });
+              results.push({ type: "tool_result", tool_use_id: call.id, content: "Shown to the user as a card. Not saved until they press Save." });
             } catch (e) {
               results.push({ type: "tool_result", tool_use_id: call.id, content: e instanceof Error ? e.message : "Failed.", is_error: true });
             }

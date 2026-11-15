@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { Briefcase, ChefHat, Dumbbell, BedDouble, LogOut, Home, LayoutGrid } from "lucide-react";
+import { Briefcase, ChefHat, Dumbbell, BedDouble, LogOut, Home, LayoutGrid, Plug } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { logout } from "@/app/login/actions";
 import { ROOMS, SITE_NAME } from "@/lib/site";
@@ -32,6 +32,18 @@ export function StudioBar() {
           >
             <LayoutGrid size={14} />
             <span className="hidden sm:inline">Today</span>
+          </Link>
+          <Link
+            href="/connectors"
+            prefetch
+            aria-current={path.startsWith("/connectors") ? "page" : undefined}
+            className={clsx(
+              "tab-link flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium",
+              path.startsWith("/connectors") ? "bg-ink text-bg" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
+            )}
+          >
+            <Plug size={14} />
+            <span className="hidden sm:inline">Connectors</span>
           </Link>
           <span className="mx-0.5 h-4 w-px bg-line" aria-hidden />
           {ROOMS.map((r) => {
