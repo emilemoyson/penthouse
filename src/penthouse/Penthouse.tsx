@@ -9,7 +9,7 @@ import { useZone, type ZoneId } from "./store";
 import { ZONES, zoneById } from "./zones";
 import type { PenthouseData } from "./data/types";
 import { SITE_NAME } from "@/lib/site";
-import { labelEls } from "./labels";
+import { labelEls, shelfLabel } from "./labels";
 import { RoomChat } from "./overlays/RoomChat";
 import { ambientFrom, nyHour, statusLine, useAmbient } from "./ambient";
 import { Sheet, openFullView } from "./overlays/Sheet";
@@ -110,6 +110,7 @@ function Hud({ data }: { data: PenthouseData }) {
   const focus = useZone((s) => s.focus);
   const hovered = useZone((s) => s.hovered);
   const hover = useZone((s) => s.hover);
+  const setShelf = useZone((s) => s.setShelf);
   const free = (phase === "overview" || phase === "returning") && !touring;
   const [hint, setHint] = useState(true);
   // the hour is only known in the browser (and ?hour= can change it), so name the walkthrough after mount
@@ -177,6 +178,16 @@ function Hud({ data }: { data: PenthouseData }) {
               <kbd className="hidden font-mono text-[10px] text-white/30 sm:inline">{z.key}</kbd>
             </button>
           ))}
+          <span className="mx-1 w-px self-stretch bg-white/10" />
+          <button
+            data-connectors
+            onClick={() => setShelf(true)}
+            className="flex items-center gap-2 rounded-xl px-3 py-2 text-[12.5px] font-medium text-white/65 transition hover:bg-white/[0.12] hover:text-white sm:px-4"
+          >
+            <span className="size-1.5 rounded-full bg-amber-300 shadow-[0_0_10px_#fcd34d]" />
+            <span>Connectors</span>
+            <kbd className="hidden font-mono text-[10px] text-white/30 sm:inline">5</kbd>
+          </button>
         </nav>
       </div>
     </>
@@ -288,6 +299,8 @@ function ZoneLabels() {
   const focus = useZone((s) => s.focus);
   const hover = useZone((s) => s.hover);
   const show = phase === "overview";
+  const shelf = useZone((s) => s.shelf);
+  const setShelf = useZone((s) => s.setShelf);
   return (
     <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
       {ZONES.map((z) => {
@@ -316,6 +329,22 @@ function ZoneLabels() {
           </button>
         );
       })}
+      <button
+        ref={(el) => {
+          shelfLabel.el = el;
+        }}
+        onClick={() => setShelf(true)}
+        tabIndex={-1}
+        style={{ transform: "translate3d(-999px,-999px,0)" }}
+        className={clsx(
+          "absolute left-0 top-0 flex items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-200/30 bg-white/[0.07] px-2.5 py-1 text-[11.5px] font-medium tracking-wide text-white/85 backdrop-blur-md transition-[opacity,background-color,border-color] duration-300 hover:border-amber-200/60 hover:bg-white/[0.16] hover:text-white",
+          show && !shelf ? "pointer-events-auto opacity-100" : "opacity-0",
+        )}
+      >
+        <span className="size-1.5 rounded-full bg-amber-300 shadow-[0_0_8px_#fcd34d]" />
+        Connectors
+        <span className="ml-0.5 font-mono text-[10px] text-white/40">5</span>
+      </button>
     </div>
   );
 }
@@ -440,37 +469,85 @@ function Connectors({ data, show }: { data: PenthouseData; show: boolean }) {
     { name: "Garmin", on: false, what: "Sleep and training load" },
     { name: "WHOOP", on: false, what: "Recovery and strain" },
   ];
+  const open = useZone((st) => st.shelf);
+  const setShelf = useZone((st) => st.setShelf);
+  const setLit = useZone((st) => st.setLit);
+  const [want, setWant] = useState("");
+  const key = items.map((c) => (c.on ? 1 : 0)).join("");
+  useEffect(() => {
+    setLit(key.split("").map((c) => c === "1"));
+  }, [key, setLit]);
+  // 5 opens the shelf from the overview, like 1 to 4 open the rooms
+  useEffect(() => {
+    if (!show || open) return;
+    const five = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.key === "5" && !e.metaKey && !e.ctrlKey && !(t && /INPUT|TEXTAREA/.test(t.tagName))) setShelf(true);
+    };
+    window.addEventListener("keydown", five);
+    return () => window.removeEventListener("keydown", five);
+  }, [show, open, setShelf]);
+  useEffect(() => {
+    if (!open) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setShelf(false);
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [open, setShelf]);
+  const name = want.trim();
+  const body = `Connector: ${name}\n\nWhat it should bring into the studio:\n\n(Requested from the bookshelf. Claude Code picks this up and opens a pull request.)`;
+  const href = `https://github.com/emilemoyson/penthouse/issues/new?title=${encodeURIComponent(`Connector request: ${name}`)}&body=${encodeURIComponent(body)}`;
   return (
+    <>
     <div
+      data-shelf={open ? "open" : "closed"}
       className={clsx(
-        "absolute bottom-5 left-5 hidden flex-col gap-1.5 transition-opacity duration-500 lg:flex sm:left-7",
-        show ? "opacity-100" : "pointer-events-none opacity-0",
+        "absolute bottom-5 left-5 flex w-[min(340px,calc(100vw-2.5rem))] flex-col gap-2 rounded-3xl border border-white/12 bg-[#140b2a]/75 p-4 text-white shadow-2xl backdrop-blur-2xl transition-all duration-300 sm:left-7",
+        show && open ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0",
       )}
     >
-      <div className="text-[10.5px] font-medium uppercase tracking-[0.24em] text-white/35">Connected</div>
-      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-1.5 backdrop-blur-xl" style={{ maxWidth: 300 }}>
-        {items.map((c) => (
-          <span
-            key={c.name}
-            title={`${c.name}: ${c.on ? c.what : "not connected yet"}`}
-            className={clsx(
-              "inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[11.5px] font-medium",
-              c.on ? "bg-white/[0.1] text-white/85" : "text-white/30",
-            )}
-          >
-            <span className={clsx("size-1.5 rounded-full", c.on ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-white/20")} />
-            {c.name}
-          </span>
-        ))}
-        <a
-          href="https://github.com/emilemoyson/penthouse/issues/new?title=Connector%20request"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 rounded-xl border border-dashed border-white/15 px-2.5 py-1.5 text-[11.5px] text-white/40 transition hover:border-white/35 hover:text-white/75"
-        >
-          <Plus size={11} /> Request a connector
-        </a>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[10.5px] font-medium uppercase tracking-[0.24em] text-amber-200/70">The bookshelf</div>
+          <div className="text-[16px] font-medium">Connectors</div>
+        </div>
+        <button onClick={() => setShelf(false)} aria-label="Close" className="rounded-full border border-white/15 p-1.5 text-white/60 transition hover:text-white">
+          <X size={14} />
+        </button>
       </div>
+      <p className="text-[12.5px] leading-snug text-white/55">Each book is a source that feeds the studio. A lit spine is connected.</p>
+      <ul className="flex flex-col gap-1">
+        {items.map((c) => (
+          <li key={c.name} className={clsx("flex items-center gap-2.5 rounded-xl px-2.5 py-2", c.on ? "bg-white/[0.08]" : "bg-white/[0.02]")}>
+            <span className={clsx("size-2 shrink-0 rounded-full", c.on ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-white/20")} />
+            <div className="min-w-0 flex-1">
+              <div className={clsx("text-[13px] font-medium", c.on ? "text-white/90" : "text-white/45")}>{c.name}</div>
+              <div className="truncate text-[11.5px] text-white/40">{c.what}</div>
+            </div>
+            <span className="text-[11px] text-white/40">{c.on ? "Connected" : "Not yet"}</span>
+          </li>
+        ))}
+      </ul>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name) window.open(href, "_blank", "noopener");
+        }}
+        className="mt-1 flex items-center gap-2 rounded-xl border border-dashed border-white/20 px-2.5 focus-within:border-white/45"
+      >
+        <Plus size={13} className="text-white/45" />
+        <input
+          value={want}
+          onChange={(e) => setWant(e.target.value)}
+          maxLength={60}
+          placeholder="Request a connector, e.g. Spotify"
+          className="h-9 min-w-0 flex-1 bg-transparent text-[12.5px] outline-none placeholder:text-white/35"
+        />
+        <button type="submit" disabled={!name} className="rounded-lg bg-white px-2.5 py-1 text-[11.5px] font-medium text-black transition disabled:opacity-30">
+          Request
+        </button>
+      </form>
+      <p className="text-[11px] leading-snug text-white/35">Opens a GitHub request in a new tab. It becomes a pull request once it is picked up.</p>
     </div>
+    </>
   );
 }

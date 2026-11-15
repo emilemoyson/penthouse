@@ -16,7 +16,7 @@ export function Gym() {
   const lit = trained ? 1.25 : 0.55;
   const [action, setAction] = useState<Action>("squat");
   useEffect(() => {
-    const id = setInterval(() => setAction((a) => (a === "squat" ? "stretch" : "squat")), 9000);
+    const id = setInterval(() => setAction((a) => (a === "squat" ? "stretch" : "squat")), 45000);
     return () => clearInterval(id);
   }, []);
 

@@ -93,8 +93,9 @@ const HAZE_GOLD = new THREE.Color("#e8946a");
  * day: 0 at night, 1 at midday. golden: how much of a sunrise or sunset glow there is.
  */
 export function skyAt(h: number) {
-  const day = smooth(5.5, 8, h) * (1 - smooth(17, 19.5, h));
-  const golden = Math.max(0, 1 - Math.abs(h - 6.8) / 1.4) + Math.max(0, 1 - Math.abs(h - 18.3) / 1.4);
+  // golden hour sits around 5 pm, and it is dark by 7:30
+  const day = smooth(5.5, 8, h) * (1 - smooth(17.4, 19.4, h));
+  const golden = Math.max(0, 1 - Math.abs(h - 6.8) / 1.4) + Math.max(0, 1 - Math.abs(h - 17.3) / 1.5);
   const g = Math.min(1, golden);
   const sun = NIGHT.clone().lerp(NOON, day).lerp(GOLD, g * 0.8);
   const haze = HAZE_DAY.clone().lerp(HAZE_GOLD, g);

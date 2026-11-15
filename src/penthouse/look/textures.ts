@@ -97,6 +97,61 @@ export const plaster = (hex = "#5a4a40", repeat: [number, number] = [3, 1]) =>
     return tex(cv, repeat);
   });
 
+/** Old New York brick: uneven red-brown bricks, sooty mortar, a few darker and paler ones, light wear. */
+export const brick = (repeat: [number, number] = [4, 2]) =>
+  once(`brick${repeat}`, () => {
+    reseed(11);
+    const W = 512;
+    const H = 512;
+    const { cv, ctx } = canvas(W, H);
+    ctx.fillStyle = "#8f8478"; // mortar
+    ctx.fillRect(0, 0, W, H);
+    const rows = 16;
+    const bh = H / rows;
+    const bw = W / 4;
+    const tones = ["#8a3f2c", "#7d3a2a", "#9a4a33", "#6f3426", "#a3553a", "#844233", "#5e2d22"];
+    for (let r = 0; r < rows; r++) {
+      const off = r % 2 ? bw / 2 : 0;
+      for (let c = -1; c < 5; c++) {
+        const x = c * bw + off + 3 + rnd() * 2;
+        const y = r * bh + 3 + rnd() * 1.5;
+        const w = bw - 7 - rnd() * 3;
+        const h = bh - 6 - rnd() * 1.5;
+        ctx.fillStyle = tones[Math.floor(rnd() * tones.length)];
+        ctx.fillRect(x, y, w, h);
+        // soot, wear and speckle on each brick
+        for (let k = 0; k < 14; k++) {
+          const px = x + rnd() * w;
+          const py = y + rnd() * h;
+          const rr = 2 + rnd() * 9;
+          const g = ctx.createRadialGradient(px, py, 0, px, py, rr);
+          const light = rnd() > 0.55;
+          g.addColorStop(0, light ? "rgba(255,210,180,0.10)" : "rgba(20,8,4,0.16)");
+          g.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = g;
+          ctx.fillRect(px - rr, py - rr, rr * 2, rr * 2);
+        }
+        // a darker lower edge so each brick reads as raised
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(x, y + h - 2, w, 2);
+        ctx.fillStyle = "rgba(255,230,210,0.08)";
+        ctx.fillRect(x, y, w, 1.5);
+      }
+    }
+    // faint whitewash patches, like an old painted wall that wore off
+    for (let i = 0; i < 18; i++) {
+      const x = rnd() * W;
+      const y = rnd() * H;
+      const r = 30 + rnd() * 70;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, "rgba(235,225,210,0.07)");
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    return tex(cv, repeat);
+  });
+
 /** Fine woven fabric / bouclé noise, used as a bump-like colour variation. */
 export const fabric = () =>
   once("fabric", () => {

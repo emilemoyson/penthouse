@@ -23,9 +23,21 @@ export type ZoneDef = {
 };
 
 export const OVERVIEW = {
-  position: [13.4, 13.2, 18.6] as V3,
-  target: [-0.6, 0.0, -0.2] as V3,
+  position: [8.4, 8.6, 12.2] as V3,
+  target: [-0.3, 0.5, -0.4] as V3,
 };
+
+/**
+ * The studio is compact (11 x 10 m). Each corner was laid out for a bigger room, so its group is
+ * shifted toward the middle by this much; anchors and camera poses below get the same shift.
+ */
+export const SHIFT: Record<ZoneId, V3> = {
+  bed: [3.5, 0, 1],
+  desk: [-1.5, 0, 1],
+  gym: [3.5, 0, -1],
+  kitchen: [-3.7, 0, -1],
+};
+const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 
 /**
  * Overview pose for the current screen shape.
@@ -39,7 +51,8 @@ export function overviewPose(aspect: number) {
     const [px, py, pz] = OVERVIEW.position;
     return { position: [tx + (px - tx) * k, ty + (py - ty) * k, tz + (pz - tz) * k] as V3, target: OVERVIEW.target, k };
   }
-  const dist = Math.min(46, 23.5 / Math.max(aspect, 0.45));
+  // the studio is about two thirds the size of the old 18 m room, so the portrait pull-back is too
+  const dist = Math.min(31, 15.5 / Math.max(aspect, 0.45));
   const az = 1.22; // radians from +Z toward +X
   const el = 0.72; // elevation
   const pt: V3 = [tx + 0.3, ty, tz - 0.4]; // nudge so the office corner stays on screen
@@ -50,7 +63,7 @@ export function overviewPose(aspect: number) {
   };
 }
 
-export const ZONES: ZoneDef[] = [
+const RAW: ZoneDef[] = [
   {
     id: "bed",
     labelY: 1.9,
@@ -105,5 +118,11 @@ export const ZONES: ZoneDef[] = [
     href: "/kitchen",
   },
 ];
+
+export const ZONES: ZoneDef[] = RAW.map((z) => ({
+  ...z,
+  anchor: add(z.anchor, SHIFT[z.id]),
+  camera: { position: add(z.camera.position, SHIFT[z.id]), target: add(z.camera.target, SHIFT[z.id]) },
+}));
 
 export const zoneById = (id: ZoneId) => ZONES.find((z) => z.id === id)!;
