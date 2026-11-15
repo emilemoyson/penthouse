@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import clsx from "clsx";
-import { Check, Copy, RefreshCw, Plug, Smartphone, Upload, ClipboardPaste, BookOpen, Clock } from "lucide-react";
+import { Check, Copy, RefreshCw, Plug, Smartphone, Upload, ClipboardPaste, BookOpen, KeyRound } from "lucide-react";
 import type { Connector } from "@/lib/connectors/catalog";
 import {
-  deleteAccount, disconnect, markSetUp, newKey, pasteNotes, requestConnector, saveCalendar, saveProfile, syncNow, uploadSheet,
+  deleteAccount, disconnect, markSetUp, newKey, pasteNotes, requestConnector, saveCalendar, saveHevyKey, saveProfile, syncNow, uploadSheet,
 } from "./actions";
 
 export type Status = { connected: boolean; account: string | null; lastSync: string | null; error: string | null };
@@ -21,12 +21,13 @@ const ago = (iso: string | null) => {
 };
 
 const METHOD: Record<Connector["method"], { label: string; icon: typeof Plug }> = {
+  google: { label: "Log in once", icon: Plug },
   oauth: { label: "Log in once", icon: Plug },
+  key: { label: "Paste a key", icon: KeyRound },
   phone: { label: "iPhone setup", icon: Smartphone },
   upload: { label: "Upload", icon: Upload },
   paste: { label: "Paste a link", icon: ClipboardPaste },
   guide: { label: "Through Strava", icon: BookOpen },
-  soon: { label: "Coming soon", icon: Clock },
 };
 
 const btn = "inline-flex h-8 items-center justify-center gap-1.5 rounded-[9px] px-3 text-[13px] font-medium transition disabled:opacity-60";
@@ -50,7 +51,7 @@ export function ConnectorCard({ c, status, live, hasKey, calendarUrls }: { c: Co
   const M = METHOD[c.method];
   const on = !!status?.connected;
   return (
-    <div className={clsx("flex flex-col gap-3 rounded-2xl border bg-surface p-4", on ? "border-good/40" : "border-line", c.method === "soon" && "opacity-70")}>
+    <div className={clsx("flex flex-col gap-3 rounded-2xl border bg-surface p-4", on ? "border-good/40" : "border-line")}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[15px] font-semibold">{c.name}</div>
@@ -81,11 +82,12 @@ export function ConnectorCard({ c, status, live, hasKey, calendarUrls }: { c: Co
 function Body({ c, on, live, hasKey, calendarUrls }: { c: Connector; on: boolean; live: boolean; hasKey: boolean; calendarUrls?: string[] }) {
   switch (c.method) {
     case "oauth":
+    case "google":
       return on ? <Connected id={c.id} canSync /> : live ? (
         <a href={`/api/connect/${c.id}`} className={primary}>Connect {c.name}</a>
-      ) : (
-        <span className="text-[12.5px] text-ink-3">Being switched on today. Check back soon.</span>
-      );
+      ) : null;
+    case "key":
+      return <HevyForm on={on} />;
     case "phone":
       return c.id === "apple-health" ? <HealthSetup on={on} hasKey={hasKey} /> : <NotesSetup on={on} hasKey={hasKey} />;
     case "upload":
@@ -94,12 +96,10 @@ function Body({ c, on, live, hasKey, calendarUrls }: { c: Connector; on: boolean
       return <CalendarForm urls={calendarUrls ?? []} on={on} />;
     case "guide":
       return <GarminGuide on={on} />;
-    default:
-      return <span className="text-[12.5px] text-ink-3">Not yet. Ask for it below and it moves up the list.</span>;
   }
 }
 
-function Connected({ id, canSync }: { id: string; canSync?: boolean }) {
+export function Connected({ id, canSync }: { id: string; canSync?: boolean }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState("");
   return (
@@ -190,10 +190,17 @@ function NotesSetup({ on, hasKey }: { on: boolean; hasKey: boolean }) {
       {shortcut && (
         <ol className="list-decimal space-y-2 pl-4 text-[12.5px] leading-relaxed text-ink-2">
           <li><KeyMaker hasKey={hasKey} /></li>
-          <li>In Shortcuts, make a new shortcut: <b>Find Notes</b> (name is your note), then <b>Get Contents of URL</b> with method POST to:
-            <Copyable value={`${origin()}/api/ingest/notes`} />
-            Header <b>Authorization</b>: <b>Bearer</b> and your key. Request body: JSON, key <b>text</b> set to the note.</li>
-          <li>Automation, Time of Day, 9 pm, Run Immediately, run that shortcut.</li>
+          <li>
+            On your iPhone, open <b>Shortcuts</b>, tap <b>+</b> and add two actions:
+            <ul className="mt-1 list-disc space-y-1 pl-4">
+              <li><b>Find Notes</b> where Name is your workout note (this is how the Office knows which note). Limit 1.</li>
+              <li><b>Get Contents of URL</b>, method <b>POST</b>, to
+                <Copyable value={`${origin()}/api/ingest/notes`} />
+                Headers: <b>Authorization</b> = <b>Bearer</b>, a space, then your key. Request Body: <b>JSON</b>, key <b>text</b>, value the Notes from the step above.</li>
+            </ul>
+          </li>
+          <li>Name it <b>Send to Office</b> and run it once. The Gym fills in.</li>
+          <li>Make it automatic: Shortcuts, <b>Automation</b>, <b>+</b>, <b>Time of Day</b> 9 pm daily, <b>Run Immediately</b>, choose Send to Office.</li>
         </ol>
       )}
       {on && <Connected id="apple-notes" />}
@@ -240,6 +247,18 @@ function GarminGuide({ on }: { on: boolean }) {
       </ol>
       {on ? <Connected id="garmin" /> : <button className={quiet} onClick={() => markSetUp("garmin")}>Done</button>}
     </div>
+  );
+}
+
+function HevyForm({ on }: { on: boolean }) {
+  const [state, action, pending] = useActionState(saveHevyKey, undefined);
+  if (on) return <Connected id="hevy" canSync />;
+  return (
+    <form action={action} className="space-y-2">
+      <input name="key" className="field font-mono text-[12px]" placeholder="Hevy API key" autoComplete="off" maxLength={80} />
+      <button className={primary} disabled={pending}>{pending ? "Checking…" : "Connect Hevy"}</button>
+      {state && <p className={clsx("text-[12px]", state.ok ? "text-good" : "text-bad")}>{state.message}</p>}
+    </form>
   );
 }
 

@@ -99,3 +99,7 @@ Plan: `~/.claude/plans/can-you-please-help-rustling-scott.md`. All work is commi
 - vitest unit and ingest integration tests, wired into `verify.sh`; CI on GitHub Actions (PR #1, green).
 - `evals/`: receipt parser eval (8 cases, free, run in CI) and gym note parser eval (18 checks, 3 runs, calls headless Claude Code). `bash evals/run.sh` rewrites `evals/results.md`. The eval found a card-data leak (payment block starting with a card brand) and a missed `$`-less weight line; both fixed. Not done: a Claude photo eval for receipts (needs screenshots and API spend).
 - Hand-in docs: `docs/MASTER-IN-CLAUDE.md` (topic to file map; course names still TODO, not in the repo), demo seed `scripts/seed_demo.py` plus README "Try it without my data". Secret scan of git history (regex, no gitleaks installed): nothing found, only local and dummy URLs. Plugin not built.
+
+## Connectors upgrade (Nov 15, in progress, not deployed)
+Done: email_seen table, Google provider, google.ts (Gmail to-dos/events/groceries, calendars, sheet), Hevy, new catalog, Google card, Notes steps. Review fixes applied (emails claimed before reading so parallel syncs can't duplicate, every event per email, failed Claude batches retried, per-user time zone, 14-day backlog keeps going, safer ids). tsc and build pass. Google Cloud: APIs on, redirect added, scopes saved. Vercel: GOOGLE_CLIENT_ID, GOOGLE_PROJECT_NUMBER added.
+Left: Picker browser key (needs Emile's OK) -> NEXT_PUBLIC_GOOGLE_PICKER_KEY; Emile pastes GOOGLE_CLIENT_SECRET in Vercel; deploy office-multiuser to production; test live.

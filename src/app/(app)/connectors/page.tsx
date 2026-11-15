@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/session";
 import { hasIngestToken } from "@/lib/ingest-tokens";
 import { getKV } from "@/lib/db";
 import { ConnectorCard, ProfileForm, RequestForm, DeleteAccount, Banner, type Status } from "./ui";
+import { GoogleCard } from "./google-card";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Connectors" };
@@ -43,6 +44,8 @@ export default async function ConnectorsPage({ searchParams }: { searchParams: P
     const p = PROVIDERS[id];
     return !p || (!!p.clientId() && !!p.clientSecret());
   };
+  const googleRow = rows.find((r) => r.connector === "google");
+  const google = CONNECTORS.find((c) => c.id === "google")!;
   const count = rows.filter((r) => r.status === "connected").length;
   const first = (profile.name || user?.name || "").split(/\s+/)[0];
 
@@ -63,8 +66,19 @@ export default async function ConnectorsPage({ searchParams }: { searchParams: P
 
       <Banner connected={sp.connected} error={sp.error} />
 
+      {live("google") && (
+        <GoogleCard
+          c={google}
+          status={status.get("google") ?? null}
+          sheetName={typeof googleRow?.config?.sheetName === "string" ? googleRow.config.sheetName : null}
+          pickerKey={process.env.NEXT_PUBLIC_GOOGLE_PICKER_KEY ?? ""}
+          appId={process.env.GOOGLE_PROJECT_NUMBER ?? ""}
+        />
+      )}
+
       {ROOMS.map((room) => {
-        const list = CONNECTORS.filter((c) => c.rooms[0] === room.id);
+        // Google has its own card above; login cards without app keys stay hidden until they work
+        const list = CONNECTORS.filter((c) => c.rooms[0] === room.id && c.id !== "google" && (c.method !== "oauth" || live(c.id)));
         if (!list.length) return null;
         return (
           <section key={room.id} className="space-y-3">

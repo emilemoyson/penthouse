@@ -7,7 +7,9 @@ import { db, getKV, rootSql, runAsUser, setKV } from "@/lib/db";
 import { getUserId, supabaseServer } from "@/lib/session";
 import { rotateIngestToken } from "@/lib/ingest-tokens";
 import { importWorkoutText } from "@/lib/workout-import";
-import { markConnected } from "@/lib/connectors/store";
+import { markConnected, saveConnection } from "@/lib/connectors/store";
+import { accessToken } from "@/lib/connectors/oauth";
+import { clearCalendarCache, googleConfig, listCalendars, setGoogleConfig, syncSheet, type CalendarChoice } from "@/lib/connectors/google";
 import { byId } from "@/lib/connectors/catalog";
 import { runSync, canSync } from "@/lib/connectors/sync";
 
@@ -98,7 +100,8 @@ export async function saveCalendar(_p: Result | undefined, form: FormData): Prom
 
 export async function markSetUp(connector: string) {
   const id = await uid();
-  if (!byId(connector)) return;
+  const c = byId(connector);
+  if (!c || (c.method !== "guide" && c.method !== "phone")) return;
   await markConnected(id, connector, { via: "guide" });
   revalidatePath("/connectors");
 }
@@ -173,4 +176,71 @@ export async function deleteAccount(form: FormData) {
 export async function getCalendarUrls() {
   const id = await uid();
   return runAsUser(id, () => getKV<string[]>("calendar_urls", []));
+}
+
+/* ---------- Google ---------- */
+
+export async function googleCalendars(): Promise<{ ok: boolean; message: string; items: CalendarChoice[] }> {
+  const id = await uid();
+  try {
+    return { ok: true, message: "", items: await listCalendars(id) };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Couldn't reach Google.", items: [] };
+  }
+}
+
+export async function saveGoogleCalendars(ids: string[]): Promise<Result> {
+  const id = await uid();
+  let known: Set<string>;
+  try {
+    known = new Set((await listCalendars(id)).map((c) => c.id));
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Couldn't reach Google." };
+  }
+  const chosen = [...new Set(ids)].filter((c) => known.has(c)).slice(0, 15);
+  await setGoogleConfig(id, { calendars: chosen });
+  clearCalendarCache(id);
+  revalidatePath("/", "layout");
+  return { ok: true, message: `Showing ${chosen.length} calendar${chosen.length === 1 ? "" : "s"}.` };
+}
+
+/** A short-lived Google token for the file picker in this user's browser. drive.file only covers files they pick. */
+export async function pickerToken(): Promise<{ ok: boolean; token?: string; message: string }> {
+  const id = await uid();
+  if (!(await googleConfig(id))) return { ok: false, message: "Connect Google first." };
+  try {
+    return { ok: true, token: await accessToken(id, "google"), message: "" };
+  } catch {
+    return { ok: false, message: "The Google connection expired. Connect again." };
+  }
+}
+
+export async function saveSheet(sheetId: string): Promise<Result> {
+  const id = await uid();
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(sheetId)) return { ok: false, message: "That isn't a Google Sheet." };
+  const cfg = await googleConfig(id);
+  if (!cfg) return { ok: false, message: "Connect Google first." };
+  try {
+    const token = await accessToken(id, "google");
+    const msg = await syncSheet(id, token, { ...cfg, sheetId }, true);
+    await setGoogleConfig(id, { sheetId });
+    revalidatePath("/", "layout");
+    return { ok: true, message: msg };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Couldn't read that sheet." };
+  }
+}
+
+/* ---------- Hevy ---------- */
+
+export async function saveHevyKey(_p: Result | undefined, form: FormData): Promise<Result> {
+  const id = await uid();
+  const key = String(form.get("key") || "").trim();
+  if (!/^[A-Za-z0-9-]{20,80}$/.test(key)) return { ok: false, message: "Paste the API key from hevy.com > Settings > Developer." };
+  const test = await fetch("https://api.hevyapp.com/v1/workouts/count", { headers: { "api-key": key }, cache: "no-store" }).catch(() => null);
+  if (!test?.ok) return { ok: false, message: "Hevy didn't accept that key. It needs Hevy Pro." };
+  await saveConnection(id, "hevy", { access_token: key });
+  const r = await runSync(id, "hevy", 30);
+  revalidatePath("/", "layout");
+  return r;
 }

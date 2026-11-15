@@ -6,7 +6,7 @@ import { PROVIDERS, authorizeUrl, redirectUri } from "@/lib/connectors/oauth";
 /** Starts "log in with X": a state cookie against forgery, then off to the provider's own login page. */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const p = PROVIDERS[id];
+  const p = Object.hasOwn(PROVIDERS, id) ? PROVIDERS[id] : undefined;
   const back = new URL("/connectors", req.url);
   if (!(await getUserId())) return NextResponse.redirect(new URL("/login?next=/connectors", req.url));
   if (!p || !p.clientId() || !p.clientSecret()) {

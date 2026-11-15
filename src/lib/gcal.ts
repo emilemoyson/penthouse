@@ -1,4 +1,5 @@
-import { getKV } from "./db";
+import { currentUserId, getKV } from "./db";
+import { googleEvents } from "./connectors/google";
 import { safeFetchText } from "./safe-fetch";
 import ical, { type ParameterValue, type VEvent } from "node-ical";
 import { addDays, parseISO, TZ } from "@/lib/dates";
@@ -39,8 +40,11 @@ export const googleCalendarEnabled = async () => (await feedUrls()).length > 0;
 /** Events from `from` to `to` (YYYY-MM-DD, inclusive), recurring ones expanded. null when not set up or the fetch fails. */
 export async function loadGoogleEvents(from: string, to: string): Promise<CalendarItem[] | null> {
   const urls = await feedUrls();
-  if (!urls.length) return null;
-  const feeds = await Promise.all(urls.map((u) => loadFeed(u, from, to)));
+  const userId = await currentUserId().catch(() => null);
+  const google = userId ? googleEvents(userId, from, to) : Promise.resolve(null);
+  if (!urls.length && !(await google)) return null;
+  // the Google connector first, then pasted iCal links (iCloud, Outlook)
+  const feeds = await Promise.all([google, ...urls.map((u) => loadFeed(u, from, to))]);
   if (feeds.every((f) => f === null)) return null;
   const seen = new Set<string>();
   const items: CalendarItem[] = [];

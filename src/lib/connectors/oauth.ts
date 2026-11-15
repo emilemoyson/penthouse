@@ -31,6 +31,22 @@ export const PROVIDERS: Record<string, Provider> = {
     clientId: () => process.env.WHOOP_CLIENT_ID,
     clientSecret: () => process.env.WHOOP_CLIENT_SECRET,
   },
+  google: {
+    id: "google",
+    authorize: "https://accounts.google.com/o/oauth2/v2/auth",
+    token: "https://oauth2.googleapis.com/token",
+    scope: [
+      "openid",
+      "email",
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/drive.file",
+    ].join(" "),
+    clientId: () => process.env.GOOGLE_CLIENT_ID,
+    clientSecret: () => process.env.GOOGLE_CLIENT_SECRET,
+    extraAuth: { access_type: "offline", prompt: "consent", include_granted_scopes: "true" },
+  },
   notion: {
     id: "notion",
     authorize: "https://api.notion.com/v1/oauth/authorize",
