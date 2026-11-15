@@ -23,13 +23,13 @@ const ISLAND = new THREE.Vector3(4.6, 0, 1.75);
 const FRIDGE = new THREE.Vector3(7.55, 0, 3.35);
 const PATH_OUT = [ISLAND, new THREE.Vector3(6.9, 0, 1.8), FRIDGE];
 const PATH_BACK = [...PATH_OUT].reverse();
-const SPEED = 0.95;
+const SPEED = 0.7;
 
 type Step = { kind: "hold"; action: Action; secs: number; face: number } | { kind: "walk"; path: THREE.Vector3[] };
 const SCRIPT: Step[] = [
-  { kind: "hold", action: "prep", secs: 7, face: 0 },
+  { kind: "hold", action: "prep", secs: 40, face: 0 },
   { kind: "walk", path: PATH_OUT },
-  { kind: "hold", action: "idle", secs: 2.5, face: Math.PI / 2 },
+  { kind: "hold", action: "idle", secs: 16, face: Math.PI / 2 },
   { kind: "walk", path: PATH_BACK },
 ];
 

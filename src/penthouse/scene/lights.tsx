@@ -1,5 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
+import { skyAt } from "../ambient";
+
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useZone } from "../store";
@@ -25,6 +28,10 @@ export function GlowLight({
   const cast = shadow && high;
   // without bloom the room needs a touch more light to read
   intensity = high ? intensity : intensity * 1.35;
+  // lamps and neon rest while the sun is up: off at noon, half on at golden hour, full after dark
+  const hour = useZone((s) => s.hour);
+  const sky = useMemo(() => skyAt(hour), [hour]);
+  intensity *= 1 - 0.85 * sky.day * (1 - 0.55 * sky.golden);
   return (
     <pointLight
       position={position}

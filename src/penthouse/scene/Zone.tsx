@@ -4,7 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { ZONES } from "../zones";
-import { labelEls } from "../labels";
+import { labelEls, shelfLabel } from "../labels";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useZone, type ZoneId } from "../store";
 
@@ -26,12 +26,16 @@ export function Zone({ id, children, hitbox }: { id: ZoneId; children: ReactNode
   }, [hovered]);
 
   const interactive = phase === "overview";
+  // the connector bookshelf stands inside a room's click area: when it is the nearest thing hit, let it take the click
+  const onShelf = (e: ThreeEvent<MouseEvent | PointerEvent>) => !!e.intersections[0]?.object.userData.shelf;
   const over = (e: ThreeEvent<PointerEvent>) => {
+    if (onShelf(e)) return;
     e.stopPropagation();
     if (interactive) hover(id);
   };
   const out = () => hovered && hover(null);
   const click = (e: ThreeEvent<MouseEvent>) => {
+    if (onShelf(e)) return;
     e.stopPropagation();
     if (phase === "overview") focus(id);
   };
@@ -58,10 +62,11 @@ export function useGlow(id: ZoneId, base = 1.2) {
 export function LabelProjector() {
   const v = useRef(new THREE.Vector3());
   useFrame(({ camera, size }) => {
-    for (const z of ZONES) {
-      const el = labelEls.get(z.id);
+    const spots: [HTMLElement | null | undefined, number, number, number][] = ZONES.map((z) => [labelEls.get(z.id), z.anchor[0], z.labelY, z.anchor[2]]);
+    spots.push([shelfLabel.el, ...shelfLabel.at]);
+    for (const [el, px, py, pz] of spots) {
       if (!el) continue;
-      v.current.set(z.anchor[0], z.labelY, z.anchor[2]).project(camera);
+      v.current.set(px, py, pz).project(camera);
       const behind = v.current.z > 1;
       const x = ((v.current.x + 1) / 2) * size.width;
       const y = ((1 - v.current.y) / 2) * size.height;

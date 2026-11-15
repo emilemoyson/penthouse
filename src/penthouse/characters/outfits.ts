@@ -18,77 +18,104 @@ export type Outfit = {
   headphones?: string | null; // worn around the neck
   headphonesGlow?: string | null;
   beanie?: string | null;
-  hairStyle?: "textured" | "curly" | "bun" | "buzz";
+  hairStyle?: "locs" | "afro" | "textured" | "curly" | "bun" | "buzz";
+  vest?: string | null; // sleeveless puffer vest over the top
+  chain?: string | null; // thin chain at the collar
+  /** What they wear: the hoodie cut, a suit (jacket = hoodie slot, trousers = pants slot), or gym kit (tee = hoodie slot, shorts = pants slot). */
+  kind?: "hoodie" | "suit" | "gym";
+  hoodUp?: boolean;
+  baggy?: boolean; // wide, slouchy sweatpants
+  graphic?: string | null; // big bold print across the chest
+  shirt?: string; // suit shirt
+  tie?: string; // suit tie
+  tights?: string | null; // gym: under the shorts (null = bare legs)
+  headband?: string | null;
 };
 
 export const OUTFITS = {
-  /** You. Oat hoodie, charcoal joggers, white sneakers with a gum sole, headphones round the neck. */
+  /** Office: you, in a sharp charcoal-navy suit, cut slightly loose. White shirt, deep red tie, brown loafers. */
   emile: {
-    skin: "#d9a882",
-    hair: "#2a1c15",
-    hoodie: "#d6c8ae",
-    hoodieTrim: "#bfae90",
-    strings: "#f3ede2",
-    logo: "#3a5a8c",
-    pants: "#2b2b31",
-    pantsCuff: "#232328",
-    shoe: "#eeeae2",
-    sole: "#a8743f",
-    shoeAccent: "#2f4f86",
-    headphones: "#17171c",
-    headphonesGlow: "#3ee0ff",
+    kind: "suit",
+    skin: "#8a5a3e",
+    hair: "#1a120e",
+    hoodie: "#36425e",
+    hoodieTrim: "#2c3650",
+    strings: "#36425e",
+    logo: "#36425e",
+    pants: "#36425e",
+    pantsCuff: "#36425e",
+    shoe: "#4a2c1c",
+    sole: "#22150f",
+    shoeAccent: "#4a2c1c",
+    shirt: "#f2efe8",
+    tie: "#8e2f3a",
+    headphones: null,
     beanie: null,
-    hairStyle: "textured",
+    hairStyle: "locs",
   },
-  /** Sub-agent: recovery. Lavender hoodie, cream joggers. */
+  /** Bedroom: oversized grey hoodie with the hood up, baggy charcoal sweatpants, socks. */
   sleep: {
+    kind: "hoodie",
+    hoodUp: true,
+    baggy: true,
     skin: "#c98d6a",
     hair: "#151018",
-    hoodie: "#9384c2",
-    hoodieTrim: "#7b6cab",
-    strings: "#efe9ff",
-    logo: "#f2a53a",
-    pants: "#d8d0c0",
-    pantsCuff: "#c4bba9",
-    shoe: "#f1efea",
-    sole: "#e2ddd3",
-    shoeAccent: "#9384c2",
+    hoodie: "#a7a3ad",
+    hoodieTrim: "#928e99",
+    strings: "#f1eee8",
+    logo: "#d94a6a",
+    graphic: null,
+    pants: "#4a4a52",
+    pantsCuff: "#3f3f46",
+    shoe: "#efece6",
+    sole: "#d8d3ca",
+    shoeAccent: "#a7a3ad",
     headphones: null,
     beanie: null,
     hairStyle: "bun",
   },
-  /** Sub-agent: coach. Black hoodie with orange accents, grey joggers. */
+  /** Gym: navy training tee, black shorts over tights, blue headband, white trainers. */
   coach: {
-    skin: "#8d5b3e",
+    kind: "gym",
+    skin: "#7a4a32",
     hair: "#0f0b0a",
-    hoodie: "#3a3a46",
-    hoodieTrim: "#ff8a3d",
-    strings: "#ff8a3d",
-    logo: "#ff8a3d",
-    pants: "#6a6a73",
-    pantsCuff: "#57575f",
-    shoe: "#1a1a1f",
-    sole: "#f3f0ea",
-    shoeAccent: "#ff8a3d",
+    hoodie: "#24304f",
+    hoodieTrim: "#24304f",
+    strings: "#24304f",
+    logo: "#ff5a6e",
+    pants: "#1c1c22",
+    pantsCuff: "#1c1c22",
+    tights: "#121216",
+    headband: "#3d63d6",
+    shoe: "#f4f1ea",
+    sole: "#e6e1d8",
+    shoeAccent: "#ff5a6e",
     headphones: null,
+    headphonesGlow: null,
     beanie: null,
-    hairStyle: "curly",
+    hairStyle: "afro",
   },
-  /** Sub-agent: nutrition. Sage hoodie, cream joggers, rust beanie. */
+  /** Kitchen: oversized white graphic hoodie with the hood up and a bold red print, baggy grey sweatpants. */
   chef: {
+    kind: "hoodie",
+    hoodUp: true,
+    baggy: true,
     skin: "#e2b590",
     hair: "#5a3a22",
-    hoodie: "#7e9a7b",
-    hoodieTrim: "#68836a",
-    strings: "#f4efe4",
-    logo: "#f4efe4",
-    pants: "#e2d9c6",
-    pantsCuff: "#cfc5b0",
+    hoodie: "#cfc9c4",
+    hoodieTrim: "#bdb6b0",
+    strings: "#d23b3b",
+    logo: "#d23b3b",
+    graphic: "#d23b3b",
+    vest: "#c9772e",
+    chain: "#e2b64a",
+    pants: "#8b8b93",
+    pantsCuff: "#7c7c84",
     shoe: "#f4f1ea",
     sole: "#3a3a3f",
-    shoeAccent: "#c96f4a",
+    shoeAccent: "#2f56c8",
     headphones: null,
-    beanie: "#c2683f",
+    beanie: null,
     hairStyle: "buzz",
   },
 } satisfies Record<string, Outfit>;

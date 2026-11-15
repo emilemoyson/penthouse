@@ -11,7 +11,8 @@ import { CameraRig, focusPoint } from "./CameraRig";
 import { LabelProjector } from "./Zone";
 import { ShadowThrottle } from "./lights";
 import { Daylight } from "./Daylight";
-import { OVERVIEW } from "../zones";
+import { Painterly } from "./Painterly";
+import { OVERVIEW, SHIFT } from "../zones";
 import { Bed } from "../zones/Bed";
 import { Desk } from "../zones/Desk";
 import { Gym } from "../zones/Gym";
@@ -20,11 +21,16 @@ import { useZone } from "../store";
 
 export const BG = "#0b0908";
 
+/** Violet night grade after dark, a lighter touch by day, so the paint follows the light outside. */
+const gradeAt = (h: number) => (h >= 18 || h < 6.5 ? 0.85 : h >= 16.5 || h < 8 ? 0.6 : 0.3);
+const PAINT = typeof window === "undefined" || new URLSearchParams(window.location.search).get("paint") !== "0";
+
 /**
  * Lens stack: soft bloom for lamps and screens, a depth-of-field that keeps whatever the camera
  * is looking at sharp (so the city melts into bokeh), then grain + vignette.
  */
 function Lens() {
+  const hour = useZone((s) => s.hour);
   const dof = useRef<DepthOfFieldEffect>(null);
   useFrame(() => {
     dof.current?.target?.copy(focusPoint);
@@ -32,9 +38,11 @@ function Lens() {
   return (
     <EffectComposer multisampling={0}>
       <DepthOfField ref={dof} target={[0, 0, 0]} worldFocusRange={14} bokehScale={3} resolutionScale={0.5} />
+      {/* hand-painted animation look: Kuwahara brush filter + a night-city colour grade (?paint=0 turns it off) */}
+      {PAINT && <Painterly grade={gradeAt(hour)} saturation={1.5} />}
       <Bloom mipmapBlur luminanceThreshold={0.85} luminanceSmoothing={0.25} intensity={0.75} radius={0.7} />
-      <Noise opacity={0.03} premultiply />
-      <Vignette offset={0.25} darkness={0.7} />
+      <Noise opacity={0.015} premultiply />
+      <Vignette offset={0.25} darkness={0.5} />
     </EffectComposer>
   );
 }
@@ -57,7 +65,7 @@ export default function Scene() {
       shadows={high ? "percentage" : false}
       dpr={high ? [1, 1.75] : 1}
       camera={{ position: OVERVIEW.position, fov: 36, near: 0.1, far: 160 }}
-      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15, powerPreference: "high-performance" }}
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.4, powerPreference: "high-performance" }}
       onPointerMissed={() => useZone.getState().phase === "overview" && useZone.getState().hover(null)}
     >
       <color attach="background" args={[BG]} />
@@ -65,7 +73,7 @@ export default function Scene() {
 
       {/* ---------- no bright global light: a warm whisper of ambient, the rest is lamps ---------- */}
       <ambientLight intensity={high ? 0.12 : 0.2} color="#ffd8b0" />
-      <hemisphereLight args={["#8a7aa8", "#2a1c14", high ? 0.25 : 0.4]} />
+      <hemisphereLight args={["#8f6cff", "#4a1f33", high ? 0.75 : 0.9]} />
       {/* moonlight or daylight through the glass, by New York time */}
       <Daylight />
       {/* camera-side fill so silhouettes never go fully black */}
@@ -74,10 +82,18 @@ export default function Scene() {
       <PerformanceMonitor onDecline={() => setQuality("low")} />
       <Suspense fallback={null}>
         <Room reflective={high} />
-        <Bed />
-        <Desk />
-        <Gym />
-        <Kitchen />
+        <group position={SHIFT.bed}>
+          <Bed />
+        </group>
+        <group position={SHIFT.desk}>
+          <Desk />
+        </group>
+        <group position={SHIFT.gym}>
+          <Gym />
+        </group>
+        <group position={SHIFT.kitchen}>
+          <Kitchen />
+        </group>
         <Preload all />
       </Suspense>
 
