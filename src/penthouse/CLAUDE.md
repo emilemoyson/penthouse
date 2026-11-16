@@ -12,9 +12,9 @@
 - Labels are plain DOM elements projected each frame (`LabelProjector`), not drei `Html`.
 - Quality: `?quality=low|high`. Low turns off shadows, reflections and the lens stack. Phones start on low; `PerformanceMonitor` drops to low on slow devices.
 
-## The rise (`rise.ts`)
+## Rooms and clicks
 
-In a focused room, scrolling drives one 0 to 1 value. `CameraRig` eases it each frame and cranes the camera into the sky, `scene/NightSky.tsx` fades a star dome in, the panel fades out, and `overlays/Sheet.tsx` slides the room's page up in a same-origin iframe. Letting go part-way snaps to the nearer end; scrolling up at the top, Esc or a click on the sky goes back down. In a frame, the root layout adds `html.embedded`, which hides `[data-app-nav]` and the page background. Intercepting routes were tried and dropped: Next 15 throws "initialTree is not iterable" because the pages live in the `(app)` group with their own layout. Emile has more tweaks in mind here; ask.
+A focused room shows only its glass panel and chat. The full view (scroll to rise into the sky, `overlays/Sheet.tsx`) was removed on 2026-11-15; `Sheet.tsx` and `nudgeRise` in `rise.ts` are unused. A click on a room only counts if the pointer moved 6 px or less (`e.delta`), so dragging to turn the view never zooms in. Room hitboxes are deliberately small.
 
 ## Gotchas
 

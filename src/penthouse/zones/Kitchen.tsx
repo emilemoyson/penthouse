@@ -87,7 +87,7 @@ export function Kitchen() {
   // shelves and fruit bowl empty as the pantry runs low
   const fill = useAmbient((s) => s.pantryFill);
   return (
-    <Zone id="kitchen" hitbox={{ size: [4.8, 2.4, 3.8], position: [6.3, 1.2, 2.3] }}>
+    <Zone id="kitchen" hitbox={{ size: [2.88, 1.44, 2.28], position: [6.3, 1.2, 2.3] }}>
       <Island position={[4.6, 0, 2.6]} />
       {[3.8, 4.6, 5.4].map((x) => (
         <Stool key={x} position={[x, 0, 3.5]} />

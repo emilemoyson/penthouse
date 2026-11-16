@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ArrowUpRight, ChevronsDown, X, LayoutGrid, Play, Plus } from "lucide-react";
+import { ArrowUpRight, X, LayoutGrid, Play, Plus } from "lucide-react";
 import { create } from "zustand";
 import { useZone, type ZoneId } from "./store";
 import { ZONES, zoneById } from "./zones";
@@ -12,8 +12,7 @@ import { SITE_NAME } from "@/lib/site";
 import { labelEls, shelfLabel } from "./labels";
 import { RoomChat } from "./overlays/RoomChat";
 import { ambientFrom, nyHour, statusLine, useAmbient } from "./ambient";
-import { Sheet, openFullView } from "./overlays/Sheet";
-import { innerCanScroll, nudgeRise, onRiseFrame } from "./rise";
+import { onRiseFrame } from "./rise";
 
 // WebGL only runs in the browser
 const Scene = dynamic(() => import("./scene/Scene"), { ssr: false, loading: () => <Loader /> });
@@ -25,40 +24,6 @@ export function Penthouse({ data }: { data: PenthouseData }) {
   useEffect(() => {
     useAmbient.setState(ambientFrom(data));
   }, [data]);
-
-  // In a focused room, scrolling anywhere (room, panel, empty space) drives the rise into the sky
-  // and the full view. A list inside the panel that can still scroll gets the wheel first.
-  useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    // only a room with a full page rises into the sky
-    const focused = () => {
-      const z = useZone.getState();
-      return z.phase === "focused" && z.zone != null && !!zoneById(z.zone)?.href;
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (!focused() || innerCanScroll(e.target, e.deltaY, el)) return;
-      nudgeRise(e.deltaMode === 1 ? e.deltaY * 32 : e.deltaY);
-    };
-    let touchY: number | null = null;
-    const onTouchStart = (e: TouchEvent) => (touchY = e.touches[0].clientY);
-    const onTouchMove = (e: TouchEvent) => {
-      const y = e.touches[0].clientY;
-      if (touchY != null && focused() && !innerCanScroll(e.target, touchY - y, el)) nudgeRise((touchY - y) * 1.6);
-      touchY = y;
-    };
-    const onTouchEnd = () => (touchY = null);
-    el.addEventListener("wheel", onWheel, { passive: true });
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: true });
-    el.addEventListener("touchend", onTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-    };
-  }, []);
 
   return (
     <div ref={root} className="dark-room fixed inset-0 overflow-hidden bg-[#0b0908] text-white">
@@ -251,14 +216,6 @@ function Overlay({ data }: { data: PenthouseData }) {
                   <p className="text-[13px] text-white/50">{def.subtitle}</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  {def.href && (
-                    <button
-                      onClick={openFullView}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-white/60 transition hover:bg-white/10 hover:text-white"
-                    >
-                      Full view <ChevronsDown size={13} />
-                    </button>
-                  )}
                   <button
                     onClick={close}
                     className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.14] hover:text-white"
@@ -280,13 +237,12 @@ function Overlay({ data }: { data: PenthouseData }) {
                 <RoomChat zone={def.id} color={def.color} />
               </div>
               <footer className="relative hidden border-t border-white/[0.06] px-6 py-2.5 text-[11.5px] text-white/35 lg:block">
-                {def.href ? "Scroll for the full view · " : ""}<kbd className="font-mono">Esc</kbd> to zoom out · <kbd className="font-mono">1–4</kbd> to jump between rooms
+                <kbd className="font-mono">Esc</kbd> to zoom out · <kbd className="font-mono">1–4</kbd> to jump between rooms
               </footer>
             </>
           )}
         </aside>
       </div>
-      {def?.href && visible && <Sheet href={def.href} />}
     </>
   );
 }

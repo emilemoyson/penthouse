@@ -230,6 +230,7 @@ function ConnectorShelf() {
   }, [hot]);
   const click = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    if (e.delta > 6) return; // a drag, not a click
     const st = useZone.getState();
     if (st.phase === "overview") st.setShelf(true);
   };

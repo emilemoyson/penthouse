@@ -21,7 +21,7 @@ export function Gym() {
   }, []);
 
   return (
-    <Zone id="gym" hitbox={{ size: [4.4, 2.4, 3.6], position: [-6.6, 1.2, 3.2] }}>
+    <Zone id="gym" hitbox={{ size: [2.64, 1.44, 2.16], position: [-6.6, 1.2, 3.2] }}>
       {/* rubber gym floor */}
       <mesh rotation-x={-Math.PI / 2} position={[-6.7, 0.006, 3.2]} receiveShadow>
         <planeGeometry args={[4.4, 3.4]} />
