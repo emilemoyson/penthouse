@@ -3,7 +3,7 @@
 Emile Moyson, IENYC "Be a Master in Claude", November 2026.
 
 - Repo: github.com/emilemoyson/penthouse (branch `main` is the personal Office, `office-multiuser` the general one)
-- Personal Office: penthouse-ashen.vercel.app (password in the hand-in note)
+- Personal Office: penthouse-ashen.vercel.app (password: `emilemoyson`)
 - General Office: the-office-moyson.vercel.app (sign in with Google)
 
 **Where to look first.** The personal Office is where everything lives: all four rooms, the room chats, the hourly email task, the iPhone Shortcut, the receipt sync and every Claude Code piece (MCP server, skills, agents, hooks). The general version shows the same idea opened up to other people, but it has fewer rooms filled in. If you have time for one, open the personal one.
@@ -81,6 +81,6 @@ A longer map with limits per topic is in `docs/MASTER-IN-CLAUDE.md`.
 
 ## 6. How to reproduce
 
-- **Quickest:** open the personal Office with the password from the hand-in note, or the general Office with a Google account.
+- **Quickest:** open the personal Office with the password `emilemoyson`, or the general Office with a Google account.
 - **Locally, without my data:** see "Try it without my data" in the README. Any empty Postgres, `npm install && npm run dev`, then `scripts/seed_demo.py` fills sleep, meals, to-dos and a gym session.
 - **No keys needed:** `npm test`, `python3 evals/receipts/score.py`, `python3 evals/gym/score.py --selftest`.
