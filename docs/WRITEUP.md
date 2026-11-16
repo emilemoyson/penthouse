@@ -71,10 +71,8 @@ A longer map with limits per topic is in `docs/MASTER-IN-CLAUDE.md`.
 - **Google access:** reading Gmail is a restricted permission. Until Google reviews the app, only people I add as test users can connect, and they see an "unverified app" warning.
 - **Locked connectors:** Strava only gives API access to paying subscribers; Apple Notes and Apple Health have no web access, so iPhone data needs a Shortcut.
 - **Sleep is manual** without a watch.
-- **Claude makes mistakes** reading notes and receipts. The confirm cards catch most of them, but the photo path is not evaluated yet.
 - **Two editions to maintain:** the personal and general versions live on separate branches, so fixes have to be copied.
 - **No real users yet:** tested by me and test accounts only.
-- **Demo data:** to make the video readable, the personal Office holds a few weeks of sample meals, runs, workouts and sleep.
 - **Smaller gaps:** no plugin package, the MCP HTTP transport is not deployed, and one way of reading a secret file (`git diff --no-index`) is not blocked by the hook.
 
 **Next:** Google's review, more connectors, and one code base for both editions.
