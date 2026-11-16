@@ -2,7 +2,7 @@ import { db, runAsUser } from "../db";
 import { importWorkoutText } from "../workout-import";
 import { accessToken } from "./oauth";
 import { syncGoogle } from "./google";
-import { loadTokens, markSynced } from "./store";
+import { markSynced } from "./store";
 
 const DAY = 86400;
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -195,65 +195,6 @@ export async function syncNotion(userId: string, days = 14) {
   return res.message;
 }
 
-/* ---------- Hevy (personal API key) ---------- */
-
-type HevySet = { type?: string; weight_kg?: number | null; reps?: number | null };
-type HevyWorkout = { id: string; title?: string; start_time: string; end_time?: string; exercises?: { title: string; sets?: HevySet[] }[] };
-
-const hevyKind = (t: string) => {
-  const s = t.toLowerCase();
-  if (/push|chest/.test(s)) return "push";
-  if (/pull|back/.test(s)) return "pull";
-  if (/leg|lower/.test(s)) return /lower/.test(s) ? "lower" : "legs";
-  if (/upper/.test(s)) return "upper";
-  if (/full/.test(s)) return "full";
-  return "other";
-};
-
-export async function syncHevy(userId: string, days = 14) {
-  const key = (await loadTokens(userId, "hevy"))?.access_token;
-  if (!key) throw new Error("Add your Hevy API key first.");
-  const cut = Date.now() - days * DAY * 1000;
-  const list: HevyWorkout[] = [];
-  for (let page = 1; page <= 10; page++) {
-    const r = await fetch(`https://api.hevyapp.com/v1/workouts?page=${page}&pageSize=10`, { headers: { "api-key": key }, cache: "no-store" });
-    if (r.status === 401 || r.status === 403) throw new Error("Hevy didn't accept that key. Copy it again from hevy.com > Settings > Developer.");
-    if (r.status === 404) break;
-    if (!r.ok) throw new Error(`Hevy answered ${r.status}`);
-    const j = (await r.json()) as { page_count?: number; workouts?: HevyWorkout[] };
-    const batch = j.workouts ?? [];
-    list.push(...batch.filter((w) => Date.parse(w.start_time) >= cut));
-    if (!batch.length || page >= (j.page_count ?? 1) || batch.some((w) => Date.parse(w.start_time) < cut)) break;
-  }
-  let sets = 0;
-  await runAsUser(userId, async () => {
-    const sql = await db();
-    await sql.begin(async (tx) => {
-      for (const w of list) {
-        const date = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(w.start_time));
-        const dur = w.end_time ? Math.round((Date.parse(w.end_time) - Date.parse(w.start_time)) / 60000) : null;
-        const [row] = await tx<{ id: number }[]>`insert into workouts (date, kind, notes, duration_min, source, ext_id)
-          values (${date}, ${hevyKind(w.title ?? "")}, ${w.title ?? "Hevy workout"}, ${dur}, 'hevy', ${w.id})
-          on conflict (user_id, source, ext_id) do update set date = excluded.date, kind = excluded.kind, notes = excluded.notes, duration_min = excluded.duration_min
-          returning id`;
-        await tx`delete from sets where workout_id = ${row.id}`;
-        for (const [order, ex] of (w.exercises ?? []).entries()) {
-          await tx`insert into exercises (name) values (${ex.title}) on conflict (user_id, name) do nothing`;
-          let n = 0;
-          for (const st of ex.sets ?? []) {
-            if (st.type === "warmup" || st.reps == null) continue;
-            n++;
-            await tx`insert into sets (workout_id, exercise, ex_order, set_no, weight, unit, reps, reps_alt)
-              values (${row.id}, ${ex.title}, ${order}, ${n}, ${st.weight_kg ?? 0}, 'kg', ${st.reps}, null)`;
-            sets++;
-          }
-        }
-      }
-    });
-  });
-  return `${list.length} workout${list.length === 1 ? "" : "s"} (${sets} sets)`;
-}
-
 /* ---------- dispatcher ---------- */
 
 const SYNC: Record<string, (userId: string, days?: number) => Promise<string>> = {
@@ -261,7 +202,6 @@ const SYNC: Record<string, (userId: string, days?: number) => Promise<string>> =
   whoop: syncWhoop,
   notion: syncNotion,
   google: syncGoogle,
-  hevy: syncHevy,
 };
 
 export const canSync = (id: string) => Object.hasOwn(SYNC, id);

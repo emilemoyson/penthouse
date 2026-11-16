@@ -5,7 +5,7 @@ import { getProfile } from "@/lib/profile";
 import { getSessionUser } from "@/lib/session";
 import { hasIngestToken } from "@/lib/ingest-tokens";
 import { getKV } from "@/lib/db";
-import { ConnectorCard, ProfileForm, RequestForm, DeleteAccount, Banner, type Status } from "./ui";
+import { ConnectorCard, ProfileForm, RequestForm, DeleteAccount, Banner, type Extras, type Status } from "./ui";
 import { GoogleCard } from "./google-card";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +46,15 @@ export default async function ConnectorsPage({ searchParams }: { searchParams: P
   };
   const googleRow = rows.find((r) => r.connector === "google");
   const google = CONNECTORS.find((c) => c.id === "google")!;
+  const extras: Extras = {
+    hasKey,
+    calendarUrls,
+    shortcutUrl: process.env.OFFICE_SHORTCUT_URL ?? "",
+    googleOn: googleRow?.status === "connected",
+    sheetName: typeof googleRow?.config?.sheetName === "string" ? googleRow.config.sheetName : null,
+    pickerKey: process.env.NEXT_PUBLIC_GOOGLE_PICKER_KEY ?? "",
+    appId: process.env.GOOGLE_PROJECT_NUMBER ?? "",
+  };
   const count = rows.filter((r) => r.status === "connected").length;
   const first = (profile.name || user?.name || "").split(/\s+/)[0];
 
@@ -66,19 +75,19 @@ export default async function ConnectorsPage({ searchParams }: { searchParams: P
 
       <Banner connected={sp.connected} error={sp.error} />
 
-      {live("google") && (
-        <GoogleCard
-          c={google}
-          status={status.get("google") ?? null}
-          sheetName={typeof googleRow?.config?.sheetName === "string" ? googleRow.config.sheetName : null}
-          pickerKey={process.env.NEXT_PUBLIC_GOOGLE_PICKER_KEY ?? ""}
-          appId={process.env.GOOGLE_PROJECT_NUMBER ?? ""}
-        />
-      )}
+      {live("google") && <GoogleCard c={google} status={status.get("google") ?? null} />}
 
       {ROOMS.map((room) => {
-        // Google has its own card above; login cards without app keys stay hidden until they work
-        const list = CONNECTORS.filter((c) => c.rooms[0] === room.id && c.id !== "google" && (c.method !== "oauth" || live(c.id)));
+        // Google has its own card above; login cards without app keys stay hidden until they work.
+        // Garmin goes through Strava and the sheet picker through Google, so they hide with them.
+        const list = CONNECTORS.filter(
+          (c) =>
+            c.rooms[0] === room.id &&
+            c.id !== "google" &&
+            (c.method !== "oauth" || live(c.id)) &&
+            (c.id !== "garmin" || live("strava")) &&
+            (c.method !== "sheet" || live("google")),
+        );
         if (!list.length) return null;
         return (
           <section key={room.id} className="space-y-3">
@@ -93,8 +102,7 @@ export default async function ConnectorsPage({ searchParams }: { searchParams: P
                   c={c}
                   status={status.get(c.id) ?? null}
                   live={live(c.id)}
-                  hasKey={hasKey}
-                  calendarUrls={c.id === "calendar" ? calendarUrls : undefined}
+                  x={extras}
                 />
               ))}
             </div>

@@ -7,11 +7,14 @@ import { db, getKV, rootSql, runAsUser, setKV } from "@/lib/db";
 import { getUserId, supabaseServer } from "@/lib/session";
 import { rotateIngestToken } from "@/lib/ingest-tokens";
 import { importWorkoutText } from "@/lib/workout-import";
-import { markConnected, saveConnection } from "@/lib/connectors/store";
+import { markConnected } from "@/lib/connectors/store";
 import { accessToken } from "@/lib/connectors/oauth";
 import { clearCalendarCache, googleConfig, listCalendars, setGoogleConfig, syncSheet, type CalendarChoice } from "@/lib/connectors/google";
 import { byId } from "@/lib/connectors/catalog";
 import { runSync, canSync } from "@/lib/connectors/sync";
+import { readReceipt } from "@/lib/receipt";
+import { GroceryItemIn, saveGroceryRun } from "@/lib/groceries";
+import { todayISO } from "@/lib/dates";
 
 type Result = { ok: boolean; message: string; token?: string };
 
@@ -35,40 +38,6 @@ export async function pasteNotes(_p: Result | undefined, form: FormData): Promis
   if (text.length > 60_000) return { ok: false, message: "That note is very long. Paste the last few weeks." };
   const res = await runAsUser(id, () => importWorkoutText(text, "note", { hint: "an iPhone Notes workout log" }));
   if (res.sessions) await markConnected(id, "apple-notes", { via: "paste" });
-  revalidatePath("/", "layout");
-  return { ok: res.sessions > 0, message: res.message };
-}
-
-export async function uploadSheet(_p: Result | undefined, form: FormData): Promise<Result> {
-  const id = await uid();
-  const file = form.get("file");
-  if (!(file instanceof File) || !file.size) return { ok: false, message: "Choose a file first." };
-  if (file.size > 4_000_000) return { ok: false, message: "Keep it under 4 MB (export the last few months)." };
-  let text = "";
-  if (/\.(xlsx|xlsm)$/i.test(file.name)) {
-    const ExcelJS = (await import("exceljs")).default;
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(Buffer.from(await file.arrayBuffer()) as unknown as ArrayBuffer);
-    const parts: string[] = [];
-    wb.eachSheet((ws) => {
-      const rows: string[] = [];
-      ws.eachRow((row) => {
-        const vals = (row.values as unknown[]).slice(1).map((v) => {
-          if (v instanceof Date) return v.toISOString().slice(0, 10);
-          if (v && typeof v === "object" && "result" in v) return String((v as { result: unknown }).result ?? "");
-          if (v && typeof v === "object" && "text" in v) return String((v as { text: unknown }).text ?? "");
-          return v == null ? "" : String(v);
-        });
-        rows.push(vals.join(" | "));
-      });
-      parts.push(`Sheet "${ws.name}"\n${rows.slice(-1500).join("\n")}`);
-    });
-    text = parts.join("\n\n");
-  } else {
-    text = (await file.text()).split("\n").slice(-1500).join("\n");
-  }
-  const res = await runAsUser(id, () => importWorkoutText(text, "sheet", { hint: `a spreadsheet called ${file.name}` }));
-  if (res.sessions) await markConnected(id, "sheet", { file: file.name });
   revalidatePath("/", "layout");
   return { ok: res.sessions > 0, message: res.message };
 }
@@ -231,16 +200,37 @@ export async function saveSheet(sheetId: string): Promise<Result> {
   }
 }
 
-/* ---------- Hevy ---------- */
-
-export async function saveHevyKey(_p: Result | undefined, form: FormData): Promise<Result> {
+/** A receipt photo taken on the Connectors page: read by Claude and saved straight into the fridge. */
+export async function snapReceipt(image: string): Promise<Result> {
   const id = await uid();
-  const key = String(form.get("key") || "").trim();
-  if (!/^[A-Za-z0-9-]{20,80}$/.test(key)) return { ok: false, message: "Paste the API key from hevy.com > Settings > Developer." };
-  const test = await fetch("https://api.hevyapp.com/v1/workouts/count", { headers: { "api-key": key }, cache: "no-store" }).catch(() => null);
-  if (!test?.ok) return { ok: false, message: "Hevy didn't accept that key. It needs Hevy Pro." };
-  await saveConnection(id, "hevy", { access_token: key });
-  const r = await runSync(id, "hevy", 30);
-  revalidatePath("/", "layout");
-  return r;
+  if (typeof image !== "string" || !image || image.length > 6_000_000) return { ok: false, message: "That photo is too large." };
+  const today = await runAsUser(id, async () => {
+    const sql = await db();
+    const [r] = await sql<{ n: number }[]>`select count(*)::int as n from grocery_runs where source = 'receipt' and created_at > now() - interval '1 day'`;
+    return r.n;
+  }).catch(() => 0);
+  if (today >= 15) return { ok: false, message: "That's 15 receipts today. Try again tomorrow." };
+  try {
+    const draft = await readReceipt({ image: { data: image, mediaType: "image/jpeg" } });
+    const items = draft.items.flatMap((i) => {
+      const p = GroceryItemIn.safeParse(i);
+      return p.success ? [p.data] : [];
+    });
+    if (!items.length) return { ok: false, message: "No food found on that receipt. Try a sharper photo." };
+    await runAsUser(id, async () =>
+      saveGroceryRun(await db(), {
+        date: draft.date && /^\d{4}-\d{2}-\d{2}$/.test(draft.date) ? draft.date : todayISO(),
+        store: draft.store.slice(0, 100),
+        total: draft.total ?? undefined,
+        source: "receipt",
+        items,
+      }),
+    );
+    await markConnected(id, "receipt", { via: "photo" });
+    revalidatePath("/", "layout");
+    return { ok: true, message: `Added ${items.length} item${items.length === 1 ? "" : "s"}${draft.store ? ` from ${draft.store}` : ""} to the fridge.` };
+  } catch (e) {
+    console.error("snapReceipt", e);
+    return { ok: false, message: "Couldn't read that receipt. Try again, or a sharper photo." };
+  }
 }

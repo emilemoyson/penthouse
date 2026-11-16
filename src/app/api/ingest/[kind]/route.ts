@@ -5,6 +5,8 @@ import { db, runAsUser } from "@/lib/db";
 import { userForToken } from "@/lib/ingest-tokens";
 import { ingestHealth } from "@/lib/health-export";
 import { importWorkoutText } from "@/lib/workout-import";
+import { ingestPhoneSleep } from "@/lib/phone-sleep";
+import { markConnected } from "@/lib/connectors/store";
 import { parseISO, todayISO } from "@/lib/dates";
 import { matchExercise, parseWorkoutNote, type ParsedExercise } from "@/lib/parse-workout";
 import { SESSION_KINDS } from "@/lib/exercises";
@@ -24,6 +26,7 @@ export const dynamic = "force-dynamic";
  *   meals   { date, time?, name, kcal, protein?, carbs?, fat?, source? }
  *   emails  { id, receivedAt, sender, subject?, summary?, bullets?: string[], tag?, threadId?, url? }   (threadId → "Open in Gmail" link)
  *   todos   { id, title, detail?, due?, sender?, emailId?, threadId?, url? }
+ *   phone         { note?, sleep? }   the "Office" iPhone Shortcut: a workout note and Apple Health sleep lines (start | end | stage).
  *   workout-text  { text, date? }   a gym note in the docs/gym-template.md format (the iPhone "Log workout" Shortcut).
  *                 Every dated session in it is imported; re-sending replaces what that note sent before for the same day and type.   (re-sending never un-ticks a done item)
  *   gym-note      { date?, splits: [{ kind, sessions: [{ n, notes, exercises: [{ name, sets: [{ weight, unit, reps, alt }] }] }] }], ideas?, skipped? }
@@ -129,10 +132,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
     return NextResponse.json({ error: "unauthorized: use the personal key from the Connectors page" }, { status: 401 });
   }
   const { kind } = await params;
-  return runAsUser(userId, () => handle(req, kind));
+  return runAsUser(userId, () => handle(req, kind, userId));
 }
 
-async function handle(req: Request, kind: string) {
+async function handle(req: Request, kind: string, userId: string) {
   let body: unknown;
   try {
     body = await req.json();
@@ -143,6 +146,25 @@ async function handle(req: Request, kind: string) {
   if (kind === "gym-note") return ingestGymNote(body);
   if (kind === "groceries") return ingestGroceries(body);
   if (kind === "health") return NextResponse.json(await ingestHealth(body));
+  if (kind === "phone") {
+    // the one "Office" iPhone Shortcut: { note?: string, sleep?: string }, either part may be empty
+    const b = (body ?? {}) as { note?: unknown; sleep?: unknown };
+    const join = (v: unknown) => (Array.isArray(v) ? v.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join("\n") : typeof v === "string" ? v : "");
+    const note = join(b.note), sleepText = join(b.sleep);
+    const [wr, nr] = await Promise.allSettled([
+      note.trim() ? importWorkoutText(note, "note", { hint: "an iPhone Notes workout log" }) : Promise.resolve(null),
+      sleepText.trim() ? ingestPhoneSleep(sleepText) : Promise.resolve(0),
+    ]);
+    const w = wr.status === "fulfilled" ? wr.value : null;
+    const nights = nr.status === "fulfilled" ? nr.value : 0;
+    const parts = [
+      wr.status === "rejected" ? "Couldn't read the workout note just now." : w?.message ?? "",
+      nr.status === "rejected" ? "Couldn't read sleep just now." : nights ? `Saved ${nights} night${nights > 1 ? "s" : ""} of sleep.` : "",
+    ].filter(Boolean);
+    if (w?.sessions) await markConnected(userId, "apple-notes", { via: "shortcut" }).catch(() => {});
+    if (nights) await markConnected(userId, "apple-health", { via: "shortcut" }).catch(() => {});
+    return NextResponse.json({ ok: !!(w?.sessions || nights), message: parts.join(" ") || "Nothing new." });
+  }
   if (kind === "notes") {
     const text = typeof body === "string" ? body : String((body as { text?: unknown })?.text ?? "");
     const res = await importWorkoutText(text, "note", { hint: "an iPhone Notes workout log" });

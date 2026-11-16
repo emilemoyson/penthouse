@@ -5,12 +5,11 @@ import clsx from "clsx";
 import { Check, Plug } from "lucide-react";
 import type { Connector } from "@/lib/connectors/catalog";
 import type { CalendarChoice } from "@/lib/connectors/google";
-import { googleCalendars, pickerToken, saveGoogleCalendars, saveSheet } from "./actions";
+import { googleCalendars, saveGoogleCalendars } from "./actions";
 import { Connected, type Status } from "./ui";
 
 const btn = "inline-flex h-8 items-center justify-center gap-1.5 rounded-[9px] px-3 text-[13px] font-medium transition disabled:opacity-60";
 const primary = clsx(btn, "bg-ink text-bg hover:opacity-90");
-const quiet = clsx(btn, "border border-line bg-surface text-ink-2 hover:bg-surface-2 hover:text-ink");
 
 const ago = (iso: string | null) => {
   if (!iso) return "not yet";
@@ -21,7 +20,7 @@ const ago = (iso: string | null) => {
   return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
 };
 
-export function GoogleCard({ c, status, sheetName, pickerKey, appId }: { c: Connector; status: Status | null; sheetName: string | null; pickerKey: string; appId: string }) {
+export function GoogleCard({ c, status }: { c: Connector; status: Status | null }) {
   const on = !!status?.connected;
   return (
     <section className={clsx("rounded-2xl border bg-surface p-5", on ? "border-good/40" : "border-line")}>
@@ -48,7 +47,7 @@ export function GoogleCard({ c, status, sheetName, pickerKey, appId }: { c: Conn
       </div>
 
       {on ? (
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Calendars />
           <div className="space-y-1.5">
             <h3 className="text-[13px] font-semibold">Email</h3>
@@ -56,14 +55,14 @@ export function GoogleCard({ c, status, sheetName, pickerKey, appId }: { c: Conn
               Every hour Claude reads new mail (not promotions or social). To-dos go to your Office, confirmed plans go on your Google
               Calendar marked &quot;Added by The Office&quot;, and grocery order emails fill the Kitchen. Email text is never stored.
             </p>
+            {!status?.lastSync && <p className="text-[12px] text-ink-3">Reading your recent email now. To-dos appear in about a minute.</p>}
           </div>
-          <SheetPicker sheetName={sheetName} pickerKey={pickerKey} appId={appId} />
         </div>
       ) : (
         <ul className="mt-3 grid gap-1 text-[12.5px] text-ink-2 md:grid-cols-3">
           <li><b>Office:</b> every calendar you already use, plus to-dos found in your email.</li>
           <li><b>Kitchen:</b> online grocery orders (Instacart, Amazon Fresh, Walmart) fill the fridge.</li>
-          <li><b>Gym:</b> pick the Google Sheet you log workouts in. Only that one file is shared.</li>
+          <li><b>Gym:</b> pick the Google Sheet you log workouts in (in the Gym below). Only that one file is shared.</li>
         </ul>
       )}
       {!on && (
@@ -108,80 +107,6 @@ function Calendars() {
         </ul>
       )}
       {msg && <p className="text-[12px] text-ink-3">{msg}</p>}
-    </div>
-  );
-}
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-declare global {
-  interface Window { gapi?: any; google?: any }
-}
-
-let pickerLoaded: Promise<void> | null = null;
-function loadPicker(): Promise<void> {
-  pickerLoaded ??= new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://apis.google.com/js/api.js";
-    s.async = true;
-    s.onload = () => window.gapi.load("picker", { callback: () => resolve(), onerror: () => reject(new Error("picker")) });
-    s.onerror = () => reject(new Error("Couldn't load Google's file picker."));
-    document.head.appendChild(s);
-  });
-  return pickerLoaded;
-}
-
-function SheetPicker({ sheetName, pickerKey, appId }: { sheetName: string | null; pickerKey: string; appId: string }) {
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, start] = useTransition();
-  const [busy, setBusy] = useState(false);
-
-  const open = async () => {
-    setMsg(null);
-    setBusy(true);
-    try {
-      const [tok] = await Promise.all([pickerToken(), loadPicker()]);
-      if (!tok.ok || !tok.token) throw new Error(tok.message);
-      const g = window.google.picker;
-      const view = new g.DocsView(g.ViewId.SPREADSHEETS).setMode(g.DocsViewMode.LIST).setOwnedByMe(true);
-      const picker = new g.PickerBuilder()
-        .addView(view)
-        .addView(new g.DocsView(g.ViewId.SPREADSHEETS).setMode(g.DocsViewMode.LIST).setOwnedByMe(false))
-        .setOAuthToken(tok.token)
-        .setDeveloperKey(pickerKey)
-        .setAppId(appId)
-        .setTitle("Choose your workout sheet")
-        .setCallback((d: any) => {
-          if (d.action === g.Action.PICKED && d.docs?.[0]?.id) {
-            const id = String(d.docs[0].id);
-            start(async () => {
-              const r = await saveSheet(id);
-              setMsg({ ok: r.ok, text: r.message });
-            });
-          }
-        })
-        .build();
-      picker.setVisible(true);
-    } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : "Couldn't open the picker." });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <h3 className="text-[13px] font-semibold">Workout sheet</h3>
-      <p className="text-[12.5px] leading-relaxed text-ink-2">
-        {sheetName ? <>Reading <b>{sheetName}</b>. New rows reach the Gym every hour.</> : "Log workouts in a Google Sheet? Pick it once. The Office can only open the file you choose."}
-      </p>
-      {pickerKey && appId ? (
-        <button className={sheetName ? quiet : primary} disabled={busy || pending} onClick={open}>
-          {pending ? "Reading your sheet…" : sheetName ? "Change sheet" : "Choose your workout sheet"}
-        </button>
-      ) : (
-        <p className="text-[12px] text-ink-3">The sheet picker is being set up.</p>
-      )}
-      {msg && <p className={clsx("text-[12px]", msg.ok ? "text-good" : "text-bad")}>{msg.text}</p>}
     </div>
   );
 }
