@@ -1,5 +1,5 @@
 // The site name lives here only. Change it in one place.
-export const SITE_NAME = "The Studio";
+export const SITE_NAME = "The Office: Personal";
 
 // The four room pages, in switcher order. `zone` matches the 3D room id.
 export const ROOMS = [

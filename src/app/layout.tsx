@@ -10,7 +10,7 @@ const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", dis
 
 export const metadata: Metadata = {
   title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` },
-  description: "Personal dashboard: office, kitchen, gym and bedroom.",
+  description: "My personal Office: desk, kitchen, gym and bedroom.",
   robots: { index: false, follow: false },
 };
 

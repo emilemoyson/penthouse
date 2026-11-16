@@ -450,7 +450,7 @@ function Connectors({ data, show }: { data: PenthouseData; show: boolean }) {
     return () => window.removeEventListener("keydown", esc);
   }, [open, setShelf]);
   const name = want.trim();
-  const body = `Connector: ${name}\n\nWhat it should bring into the studio:\n\n(Requested from the bookshelf. Claude Code picks this up and opens a pull request.)`;
+  const body = `Connector: ${name}\n\nWhat it should bring into the Office:\n\n(Requested from the bookshelf. Claude Code picks this up and opens a pull request.)`;
   const href = `https://github.com/emilemoyson/penthouse/issues/new?title=${encodeURIComponent(`Connector request: ${name}`)}&body=${encodeURIComponent(body)}`;
   return (
     <>
@@ -470,7 +470,7 @@ function Connectors({ data, show }: { data: PenthouseData; show: boolean }) {
           <X size={14} />
         </button>
       </div>
-      <p className="text-[12.5px] leading-snug text-white/55">Each book is a source that feeds the studio. A lit spine is connected.</p>
+      <p className="text-[12.5px] leading-snug text-white/55">Each book is a source that feeds the Office. A lit spine is connected.</p>
       <ul className="flex flex-col gap-1">
         {items.map((c) => (
           <li key={c.name} className={clsx("flex items-center gap-2.5 rounded-xl px-2.5 py-2", c.on ? "bg-white/[0.08]" : "bg-white/[0.02]")}>

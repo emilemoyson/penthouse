@@ -16,7 +16,7 @@ export function StudioBar() {
   return (
     <header data-app-nav className="sticky top-0 z-30 border-b border-line bg-[var(--bar)] backdrop-blur-md">
       <div className="mx-auto flex h-14 w-full max-w-[1320px] items-center gap-3 px-4 sm:px-6 lg:px-8">
-        <Link href="/" prefetch className="group flex shrink-0 items-center gap-2 rounded-lg pr-2" title="Back to the 3D studio">
+        <Link href="/" prefetch className="group flex shrink-0 items-center gap-2 rounded-lg pr-2" title="Back to the 3D office">
           <Home size={16} className="text-ink-3 transition group-hover:text-accent" />
           <span className="font-serif text-[18px] font-medium tracking-[-0.01em]">{SITE_NAME}</span>
         </Link>
