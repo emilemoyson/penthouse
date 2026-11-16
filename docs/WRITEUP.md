@@ -66,16 +66,13 @@ A longer map with limits per topic is in `docs/MASTER-IN-CLAUDE.md`.
 - **Agents:** the `verifier` and `code-reviewer` agents check each change before it is committed.
 - **Privacy:** in the general version, a second test account sees none of the first account's data. Claude never saves without a confirm card.
 
-## 5. Weaknesses
+## 5. Weaknesses (general version)
 
 - **Google access:** reading Gmail is a restricted permission. Until Google reviews the app, only people I add as test users can connect, and they see an "unverified app" warning.
-- **Locked connectors:** Strava only gives API access to paying subscribers; Apple Notes and Apple Health have no web access, so iPhone data needs a Shortcut.
-- **Sleep is manual** without a watch.
-- **Two editions to maintain:** the personal and general versions live on separate branches, so fixes have to be copied.
+- **Locked connectors:** Strava only gives API access to paying subscribers, and Apple Notes and Apple Health have no web access, so iPhone data needs a Shortcut. Every new connector needs its own developer app, a secure login and often a review.
 - **No real users yet:** tested by me and test accounts only.
-- **Smaller gaps:** no plugin package, the MCP HTTP transport is not deployed, and one way of reading a secret file (`git diff --no-index`) is not blocked by the hook.
 
-**Next:** Google's review, more connectors, and one code base for both editions.
+**Next:** Google's review, more connectors, and real users.
 
 ## 6. How to reproduce
 
