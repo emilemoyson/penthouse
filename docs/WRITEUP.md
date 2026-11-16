@@ -1,52 +1,86 @@
-# Penthouse: a personal dashboard run with Claude
+# The Office: my day as an apartment, run with Claude
 
-Emile Moyson, IENYC "Be a Master in Claude". Repo: github.com/emilemoyson/penthouse (private). Live: penthouse-ashen.vercel.app (password protected, so the repo has a demo seed instead).
+Emile Moyson, IENYC "Be a Master in Claude", November 2026.
 
-## The problem
+- Repo: github.com/emilemoyson/penthouse (branch `main` is the personal Office, `office-multiuser` the general one)
+- Personal Office: penthouse-ashen.vercel.app (password in the hand-in note)
+- General Office: the-office-moyson.vercel.app (sign in with Google)
 
-Food, money, training and school admin live in separate apps: Lidl receipts, MyFitnessPal, an Apple Notes gym note, Gmail and Outlook, two calendars. Nothing connects them, so everyday decisions (what to cook with what is in the fridge, whether the week's food spend is on track, what is due on Friday) are made blind. The goal is one private place where the data arrives on its own and Claude can answer questions about it.
+**Where to look first.** The personal Office is where everything lives: all four rooms, the room chats, the hourly email task, the iPhone Shortcut, the receipt sync and every Claude Code piece (MCP server, skills, agents, hooks). The general version shows the same idea opened up to other people, but it has fewer rooms filled in. If you have time for one, open the personal one.
 
-## The approach
+## 1. The problem
 
-A Next.js and Postgres dashboard whose home page is a 3D apartment: the kitchen, gym, desk and bed each open a panel. Data comes in through one authenticated endpoint, `POST /api/ingest/:kind`, from small scripts and scheduled tasks. Claude does the parts that need judgment: reading messy input, answering questions, checking the code.
+Food, money, training and school live in separate apps: Lidl receipts, a gym note on my iPhone, Gmail and my school Outlook, two calendars, Blackboard. Nothing connects them, so everyday decisions (what to cook from what is in the fridge, whether I'm eating enough protein for my training, what is due this week) are made blind. Typing everything into one more app doesn't work either, because I stop after a week.
 
-## How Claude is used
+The idea: one place that fills itself from things I already do, and where Claude does the parts that need judgment, like reading a messy note or a receipt photo.
 
-| Where | What Claude does | Files |
+**Business angle.** The same problem applies to most students and busy professionals. So there are two editions: my own Office, and a general product anyone can sign up for, with their data kept apart from everyone else's.
+
+## 2. What I built
+
+**Personal Office (Next.js, Neon Postgres, Vercel).** The home page is a 3D apartment drawn entirely in code with React Three Fiber. It has four rooms:
+
+- **Desk:** calendar (Google, plus my Blackboard class calendar) and to-dos. An hourly scheduled Claude task reads Gmail and Outlook, adds plans to Google Calendar and sends to-dos to the Office.
+- **Gym:** I log workouts in iPhone Notes. A Shortcut sends the note to my ingest API, and Claude turns it into exercises, sets, reps and weights.
+- **Kitchen:** a Python script picks up Lidl receipts; paper receipts are read from a photo by Claude. The kitchen tracks the fridge, protein and cost per meal.
+- **Bedroom:** sleep, logged by typing a sentence into the bedroom chat.
+
+Every room has its own chat (Anthropic API). It only sees that room's data and proposes changes as a card that I confirm before anything is saved.
+
+All data arrives through one endpoint, `POST /api/ingest/:kind`, protected by a private key, so a phone, a script or a Claude task can all feed the same Office.
+
+**General Office (same code base, Supabase).** Google sign-in, and row level security in the database, so each person can only read their own rows. A Connectors page replaces my personal scripts:
+
+- **Connect Google:** reads the last 14 days of email with Claude and pulls out to-dos, plans (added to Google Calendar) and grocery orders (into the fridge). Email bodies are never stored, only what was found.
+- **Workout sheet:** picked with Google's own file picker (`drive.file`), so the app only sees that one file.
+- **iPhone Shortcut** with a personal key, and **receipt photos** from the phone.
+- **Ask for a connector:** a request opens a GitHub issue for me.
+- Users can delete their account and all their data in one step.
+
+## 3. How Claude is used, by course
+
+| Course | Where it shows | Files |
 | --- | --- | --- |
-| Messages API | Reads receipt photos and typed lists with structured output; guesses package sizes and macros; the kitchen chat streams, calls tools that only propose a cook, meal or size fix, and saves only when the user presses Save | `src/lib/receipt.ts`, `src/lib/groceries.ts`, `src/app/api/kitchen/chat/route.ts` |
-| Own MCP server | Pantry, meals, spend, workouts, "what can I cook", a weekly review prompt, sampling, progress notifications, roots. Reads go through a read-only Postgres role, writes only through the ingest API. A receipt import cuts card data before anything leaves the Mac | `mcp/` |
-| Skills | `verify` (the full gate), `weekly-food-report`, `new-ingest-kind` | `.claude/skills/` |
-| Subagents | `verifier` and `code-reviewer` (read-only, a cold second opinion), `nutrition-analyst`, `gym-data-parser` | `.claude/agents/` |
-| Hooks | Block reading `.env` files, a type check gate when a session stops, read-only Bash for the reviewers | `.claude/hooks/` |
-| Headless and scheduled | `claude -p` with a JSON schema and a budget cap parses the gym note every 30 minutes; an hourly task reads Gmail and Outlook, adds calendar events and sends to-dos to the ingest API | `scripts/gym_sync.py`, `automation/calendar-agent.md` |
+| Claude 101 | Prompt framework in every system prompt; scheduled task in the desktop app; connectors (Gmail, Calendar) | `automation/calendar-agent.md` |
+| Analyzing Data with Claude | Weekly food report: spend, protein per dollar, waste, cost per meal; gym progress charts | `.claude/skills/weekly-food-report`, `.claude/agents/nutrition-analyst.md` |
+| Building Claude Cowork Plugins | Not built. Packaging only, cut for time | |
+| Claude Code 101 | Explore, plan, code, commit; plan mode for the connectors; CLAUDE.md per folder; MCP to the database; hooks | `CLAUDE.md`, `src/penthouse/CLAUDE.md`, `scripts/CLAUDE.md` |
+| Introduction to Agent Skills | `verify`, `weekly-food-report`, `new-ingest-kind`, each with trigger and non-trigger prompts checked | `.claude/skills/`, `docs/skills-triggers.md` |
+| Introduction to Subagents | `verifier` and `code-reviewer` (read-only, a cold second opinion), `nutrition-analyst`, `gym-data-parser` | `.claude/agents/`, `docs/agents-triggers.md` |
+| Claude Code in Action | Hooks that block reading secrets, a type check gate on stop; headless `claude -p` with a JSON schema and budget cap; worktrees for the two editions; GitHub Actions | `.claude/hooks/`, `scripts/gym_sync.py`, `.github/workflows/ci.yml` |
+| Software Development with Claude Code | The ingest API built and validated with zod, integration tests on a throwaway database copy, code review before each commit | `src/app/api/ingest/[kind]`, `tests/` |
+| Introduction to Claude Models | Messages API: structured output for receipts and email, tool use and streaming in the room chats, system prompts that carry the room's data | `src/lib/receipt.ts`, `src/app/api/kitchen/chat/route.ts` |
+| MCP: Advanced Topics | Own MCP server: 7 tools, 2 resources, a prompt, sampling, progress and log notifications, roots, STDIO and HTTP; reads through a read-only Postgres role | `mcp/` |
 
-## How I checked it
+A longer map with limits per topic is in `docs/MASTER-IN-CLAUDE.md`.
 
-- 19 vitest tests (unit tests for the cooking math and the strength estimate, 5 integration tests for the ingest API: auth, validation, idempotent re-sends) and 20 pytest tests for the MCP server.
-- `verify.sh` runs the type check, build, tests and a smoke test on a copy of the database, and then checks that the real database was not touched.
-- GitHub Actions runs the same on every pull request, with a Postgres service, and fails if the receipt eval numbers change without being committed.
-- Two evals, results in `evals/results.md`:
-  - Receipt parser (8 made-up receipts, 19 items): recall and precision 94.7%, price, quantity, unit and date match 100%, 0 card details left in the payload, and the one unrecognised layout went to the Claude fallback.
-  - Gym note parser (my real 124 line note, 18 hand-counted checks, 3 runs): 18 of 18 in every run, and an empty answer scores 0 of 18, which checks the scorer.
-- The evals found two real bugs. A payment block starting with a card brand (`VISA ****9999`) was not cut, so card digits would have stayed in the text. Weight and count lines without a `$` were ignored, so a 1.6 lb item counted as one item. Both are fixed and covered by cases.
+## 4. How I checked it
 
-## Limits
+- **Tests:** 19 vitest tests (unit, plus 5 integration tests for the ingest API: auth, validation, repeated sends) and 20 pytest tests for the MCP server.
+- **Verify skill:** `verify.sh` runs the type check, build, tests and a smoke test on a copy of the database, then checks the real database was not touched.
+- **CI:** GitHub Actions runs the same on every pull request with a Postgres service.
+- **Evals** (`evals/results.md`):
+  - Receipt parser: 8 receipts, recall and precision 94.7%, 0 card details left.
+  - Gym note parser: my real note, 18 of 18 checks in 3 runs, and an empty answer scores 0, which checks the scorer.
+  - The evals found two real bugs (card digits not cut after `VISA ****`, weight lines without a `$` ignored). Both are fixed and covered.
+- **Agents:** the `verifier` and `code-reviewer` agents check each change before it is committed.
+- **Privacy:** in the general version, a second test account sees none of the first account's data. Claude never saves without a confirm card.
 
-- The receipt cases are made up by me in the layouts the app handles, so the numbers show the parser does what I designed it to do, not how it does on every real receipt. A wrapped item name still fails (recall 94.7%).
-- The Claude paths (receipt photos, size guessing, the kitchen chat) are not evaluated yet. That needs receipt screenshots and API spend.
-- The gym eval is one note. It is a regression test, not a measure of the parser on any note. I loosened four name checks after seeing the output, so those are not fully blind.
-- Some checks (skill and subagent triggers) were run by hand. One code-reviewer trigger failed at first and needed a better description.
-- The MCP HTTP transport is not deployed. There is no plugin package, and no Claude review step in CI; both were cut for time.
-- A known gap in the Bash guard: reading a secret file with `git diff --no-index` is not blocked.
-- The 3D scene is procedural (no model files), so it is stylised rather than realistic.
+## 5. Weaknesses
 
-## Demo script (about 4 minutes)
+- **Google access:** reading Gmail is a restricted permission. Until Google reviews the app, only people I add as test users can connect, and they see an "unverified app" warning.
+- **Locked connectors:** Strava only gives API access to paying subscribers; Apple Notes and Apple Health have no web access, so iPhone data needs a Shortcut.
+- **Sleep is manual** without a watch.
+- **Claude makes mistakes** reading notes and receipts. The confirm cards catch most of them, but the photo path is not evaluated yet.
+- **Two editions to maintain:** the personal and general versions live on separate branches, so fixes have to be copied.
+- **No real users yet:** tested by me and test accounts only.
+- **Demo data:** to make the video readable, the personal Office holds a few weeks of sample meals, runs, workouts and sleep.
+- **Smaller gaps:** no plugin package, the MCP HTTP transport is not deployed, and one way of reading a secret file (`git diff --no-index`) is not blocked by the hook.
 
-1. **0:00 Home (20 s).** The apartment at night, click the kitchen. Say what the project is in one sentence.
-2. **0:20 Kitchen (60 s).** Fridge panel with spend. In the chat, type "I made 4 portions of chicken and rice and ate one". Show the proposal card, press Save, show the fridge going down and the meal appearing.
-3. **1:20 MCP (50 s).** In Claude Code in the repo: "what can I cook with what I have?" then "run the weekly review". Point out the read-only role.
-4. **2:10 Gym (30 s).** Gym panel from the Apple Notes note, then `python3 evals/gym/score.py --selftest`.
-5. **2:40 Office (20 s).** To-dos and calendar filled by the hourly email task.
-6. **3:00 Rigor (50 s).** Terminal: `bash .claude/skills/verify/verify.sh` (show the last lines), the green CI run, `evals/results.md`. Say the two bugs the eval found.
-7. **3:50 Limits (15 s).** What is not evaluated yet and why.
+**Next:** Google's review, more connectors, and one code base for both editions.
+
+## 6. How to reproduce
+
+- **Quickest:** open the personal Office with the password from the hand-in note, or the general Office with a Google account.
+- **Locally, without my data:** see "Try it without my data" in the README. Any empty Postgres, `npm install && npm run dev`, then `scripts/seed_demo.py` fills sleep, meals, to-dos and a gym session.
+- **No keys needed:** `npm test`, `python3 evals/receipts/score.py`, `python3 evals/gym/score.py --selftest`.
