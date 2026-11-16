@@ -37,6 +37,7 @@ export function Zone({ id, children, hitbox }: { id: ZoneId; children: ReactNode
   const click = (e: ThreeEvent<MouseEvent>) => {
     if (onShelf(e)) return;
     e.stopPropagation();
+    if (e.delta > 6) return; // the pointer moved: that was a drag to turn the view
     if (phase === "overview") focus(id);
   };
 

@@ -17,7 +17,7 @@ export function Desk() {
   const rug = useMemo(() => berberRug("#3f3a35", "#8a7a66"), []);
   const top = 0.76;
   return (
-    <Zone id="desk" hitbox={{ size: [2.6, 1.8, 2.4], position: [4.6, 0.9, -4.6] }}>
+    <Zone id="desk" hitbox={{ size: [1.56, 1.08, 1.44], position: [4.6, 0.9, -4.6] }}>
       <mesh rotation-x={-Math.PI / 2} position={[4.6, 0.006, -4.75]} receiveShadow>
         <planeGeometry args={[2.4, 1.9]} />
         <meshStandardMaterial map={rug} roughness={1} />

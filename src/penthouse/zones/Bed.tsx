@@ -21,7 +21,7 @@ export function Bed() {
   // after a short night the duvet is kicked down to the foot of the bed
   const unmade = useAmbient((s) => s.bedUnmade);
   return (
-    <Zone id="bed" hitbox={{ size: [3.6, 1.6, 3.4], position: [-7.2, 0.8, -3.4] }}>
+    <Zone id="bed" hitbox={{ size: [2.16, 0.96, 2.04], position: [-7.2, 0.8, -3.4] }}>
       <mesh rotation-x={-Math.PI / 2} rotation-z={Math.PI / 2} position={[-6.7, 0.006, -3.4]} receiveShadow>
         <planeGeometry args={[2.4, 3.4]} />
         <meshStandardMaterial map={rug} roughness={1} />
