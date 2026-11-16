@@ -1,0 +1,16 @@
+{
+  "name": "the-office",
+  "owner": {
+    "name": "Emile Moyson"
+  },
+  "plugins": [
+    {
+      "name": "the-office",
+      "source": "./plugin",
+      "description": "Skills and agents from The Office, packaged to share with a classmate or team."
+    }
+  ],
+  "metadata": {
+    "description": "Skills and agents from The Office."
+  }
+}

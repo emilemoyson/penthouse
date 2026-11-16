@@ -39,18 +39,20 @@ All data arrives through one endpoint, `POST /api/ingest/:kind`, protected by a 
 
 ## 3. How Claude is used, by course
 
-| Course | Where it shows | Files |
+All ten courses of the challenge are completed on DataCamp. Each row names the course chapters it draws on and where to see them in the repo.
+
+| Course (chapters used) | Where it shows | Files |
 | --- | --- | --- |
-| Claude 101 | Prompt framework in every system prompt; scheduled task in the desktop app; connectors (Gmail, Calendar) | `automation/calendar-agent.md` |
-| Analyzing Data with Claude | Weekly food report: spend, protein per dollar, waste, cost per meal; gym progress charts | `.claude/skills/weekly-food-report`, `.claude/agents/nutrition-analyst.md` |
-| Building Claude Cowork Plugins | Not built. Packaging only, cut for time | |
-| Claude Code 101 | Explore, plan, code, commit; plan mode for the connectors; CLAUDE.md per folder; MCP to the database; hooks | `CLAUDE.md`, `src/penthouse/CLAUDE.md`, `scripts/CLAUDE.md` |
-| Introduction to Agent Skills | `verify`, `weekly-food-report`, `new-ingest-kind`, each with trigger and non-trigger prompts checked | `.claude/skills/`, `docs/skills-triggers.md` |
-| Introduction to Subagents | `verifier` and `code-reviewer` (read-only, a cold second opinion), `nutrition-analyst`, `gym-data-parser` | `.claude/agents/`, `docs/agents-triggers.md` |
-| Claude Code in Action | Hooks that block reading secrets, a type check gate on stop; headless `claude -p` with a JSON schema and budget cap; worktrees for the two editions; GitHub Actions | `.claude/hooks/`, `scripts/gym_sync.py`, `.github/workflows/ci.yml` |
-| Software Development with Claude Code | The ingest API built and validated with zod, integration tests on a throwaway database copy, code review before each commit | `src/app/api/ingest/[kind]`, `tests/` |
-| Introduction to Claude Models | Messages API: structured output for receipts and email, tool use and streaming in the room chats, system prompts that carry the room's data | `src/lib/receipt.ts`, `src/app/api/kitchen/chat/route.ts` |
-| MCP: Advanced Topics | Own MCP server: 7 tools, 2 resources, a prompt, sampling, progress and log notifications, roots, STDIO and HTTP; reads through a read-only Postgres role | `mcp/` |
+| 1. Claude 101 (Meet Claude; Organizing work; Expanding Claude's reach) | Three-part prompt (task, context, format) in every system prompt; Projects and Skills; connectors to Gmail, Outlook and Google Calendar; an hourly scheduled task in the desktop app | `automation/calendar-agent.md` |
+| 2. Analyzing Data with Claude (Data files; Advanced analytics workflows) | Receipt CSVs and a gym note turned into tables; weekly food report: spend vs budget, protein per dollar, waste, cost per meal; gym progress charts | `.claude/skills/weekly-food-report`, `.claude/agents/nutrition-analyst.md` |
+| 3. Building Claude Cowork Plugins (Using to building; external plugins; build and share) | The skills and agents packaged as one plugin with a marketplace file, so a classmate installs them with `/plugin install`; README covers the trust check before installing | `plugin/`, `.claude-plugin/marketplace.json` |
+| 4. Claude Code 101 (First prompt; daily workflows; customizing) | Explore, plan, code, commit; plan mode before the connectors work; CLAUDE.md per folder; MCP to the database; permissions and hooks | `CLAUDE.md`, `src/penthouse/CLAUDE.md`, `scripts/CLAUDE.md` |
+| 5. Introduction to Agent Skills (First skill; configuration; sharing and troubleshooting) | `verify`, `weekly-food-report`, `new-ingest-kind`, each with trigger and non-trigger prompts tested; shared through the plugin | `.claude/skills/`, `docs/skills-triggers.md` |
+| 6. Introduction to Subagents (Designing effective subagents) | `verifier` and `code-reviewer` (read-only tools, a cold second opinion), `nutrition-analyst`, `gym-data-parser`, each with a narrow tool list | `.claude/agents/`, `docs/agents-triggers.md` |
+| 7. Claude Code in Action (Steer; configure; automate repeat work; verify and share) | Hooks that block reading secrets and a type-check gate on stop; headless `claude -p` with a JSON schema and budget cap; worktrees for the two editions; GitHub Actions CI | `.claude/hooks/`, `scripts/gym_sync.py`, `.github/workflows/ci.yml` |
+| 8. Software Development with Claude Code (Extending; MCP to external tools; building a CLI) | The ingest API validated with zod; integration tests on a throwaway database copy; code review before each commit; Python CLI syncs for Lidl and the gym | `src/app/api/ingest/[kind]`, `tests/`, `scripts/` |
+| 9. Introduction to Claude Models (Anthropic API; prompting; multi-message) | Messages API: structured output for receipts and email; multi-turn room chats with streaming, tool use, adaptive thinking and prompt caching (`cache_control`); system prompts carry each room's data | `src/lib/receipt.ts`, `src/app/api/room/[zone]/chat/route.ts` |
+| 10. Model Context Protocol: Advanced Topics (Core features; transports) | Own MCP server: 7 tools, 2 resources, a prompt, sampling, progress and log notifications, roots; STDIO and streamable HTTP transports; reads through a read-only Postgres role | `mcp/` |
 
 A longer map with limits per topic is in `docs/MASTER-IN-CLAUDE.md`.
 
