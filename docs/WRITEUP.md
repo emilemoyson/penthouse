@@ -66,13 +66,9 @@ A longer map with limits per topic is in `docs/MASTER-IN-CLAUDE.md`.
 - **Agents:** the `verifier` and `code-reviewer` agents check each change before it is committed.
 - **Privacy:** in the general version, a second test account sees none of the first account's data. Claude never saves without a confirm card.
 
-## 5. Weaknesses (general version)
+## 5. Weaknesses
 
-- **Google access:** reading Gmail is a restricted permission. Until Google reviews the app, only people I add as test users can connect, and they see an "unverified app" warning.
-- **Locked connectors:** Strava only gives API access to paying subscribers, and Apple Notes and Apple Health have no web access, so iPhone data needs a Shortcut. Every new connector needs its own developer app, a secure login and often a review.
-- **No real users yet:** tested by me and test accounts only.
-
-**Next:** Google's review, more connectors, and real users.
+The Office is only as good as the data it can reach, and that is its biggest weakness once it leaves my own setup. On my Mac, a new source is a small script. On the web, every source is a negotiation with someone else's platform: Gmail is a restricted permission, so until Google reviews the app only test users I add can connect, and they see an "unverified app" warning. Strava keeps its API behind a paid subscription, and Apple Notes and Apple Health have no web access at all, so iPhone data still has to travel through a Shortcut. Each new connector means its own developer app, a secure login and often a review, which makes growing the product slower than building it. And so far it has only been used by me and a few test accounts, so I don't yet know how it holds up for people whose lives look different from mine. The next steps are Google's review, more connectors, and real users.
 
 ## 6. How to reproduce
 
